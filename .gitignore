@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# FastAPI / Database
+*.db
+backend/airline.db
+*.sqlite
+
+# Flutter / Dart
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.metadata
+mobile/.packages
+mobile/.pub-cache/
+mobile/.pub/
+mobile/build/
+mobile/ios/.generated/
+mobile/linux/flutter/ephemeral/
+mobile/macos/flutter/ephemeral/
+mobile/windows/flutter/ephemeral/
+mobile/pubspec.lock
+
+# Android
+mobile/android/.gradle
+mobile/android/local.properties
+mobile/android/CAPTURES
+
+# iOS
+mobile/ios/Flutter/App.framework
+mobile/ios/Flutter/Flutter.framework
+mobile/ios/Podfile.lock
+mobile/ios/Pods/
+
+# macOS
+.DS_Store
+
+# IDEs
+.idea/
+.vscode/
+*.swp

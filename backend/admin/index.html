@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Airline Admin Panel</title>
+    <link rel="stylesheet" href="/admin/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Login Section -->
+        <div id="loginSection" class="section">
+            <div class="login-card">
+                <h1>🛫 Airline Admin Panel</h1>
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="email">Email:</label>
+                        <input type="email" id="email" required placeholder="Enter your email...">
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Password:</label>
+                        <input type="password" id="password" required placeholder="Enter your password...">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Login</button>
+                </form>
+                <div id="loginError" class="error-message"></div>
+            </div>
+        </div>
+
+        <!-- Dashboard Section -->
+        <div id="dashboardSection" class="section hidden">
+            <header>
+                <h1>🛫 Admin Dashboard</h1>
+                <div class="user-info">
+                    <span id="userEmail"></span>
+                    <button id="logoutBtn" class="btn btn-secondary">Logout</button>
+                </div>
+            </header>
+
+            <nav class="tabs">
+                <button class="tab-btn active" data-tab="flights">Flights</button>
+                <button class="tab-btn" data-tab="airports">Airports</button>
+                <button class="tab-btn" data-tab="airplanes">Airplanes</button>
+                <button class="tab-btn" data-tab="announcements">Announcements</button>
+                <button class="tab-btn" data-tab="users">Users</button>
+                <button class="tab-btn" data-tab="bookings">Bookings</button>
+            </nav>
+
+            <!-- Flights Tab -->
+            <div id="flightsTab" class="tab-content active">
+                <div class="tab-header">
+                    <h2>Manage Flights</h2>
+                    <button id="createFlightBtn" class="btn btn-primary">+ Create Flight</button>
+                </div>
+                <div id="flightsList" class="data-list"></div>
+            </div>
+
+            <!-- Airports Tab -->
+            <div id="airportsTab" class="tab-content">
+                <div class="tab-header">
+                    <h2>Manage Airports</h2>
+                    <button id="createAirportBtn" class="btn btn-primary">+ Create Airport</button>
+                </div>
+                <div id="airportsList" class="data-list"></div>
+            </div>
+
+            <!-- Airplanes Tab -->
+            <div id="airplanesTab" class="tab-content">
+                <div class="tab-header">
+                    <h2>Manage Airplanes</h2>
+                    <button id="createAirplaneBtn" class="btn btn-primary">+ Create Airplane</button>
+                </div>
+                <div id="airplanesList" class="data-list"></div>
+            </div>
+
+            <!-- Announcements Tab -->
+            <div id="announcementsTab" class="tab-content">
+                <div class="tab-header">
+                    <h2>Manage Announcements</h2>
+                    <button id="createAnnouncementBtn" class="btn btn-primary">+ Create Announcement</button>
+                </div>
+                <div id="announcementsList" class="data-list"></div>
+            </div>
+
+            <!-- Users Tab -->
+            <div id="usersTab" class="tab-content">
+                <div class="tab-header">
+                    <h2>Manage Users</h2>
+                    <button id="createUserBtn" class="btn btn-primary">+ Create User</button>
+                </div>
+                <div id="usersList" class="data-list"></div>
+            </div>
+
+            <!-- Bookings Tab -->
+            <div id="bookingsTab" class="tab-content">
+                <div class="tab-header">
+                    <h2>All Bookings</h2>
+                    <button id="refreshBookingsBtn" class="btn btn-secondary">Refresh</button>
+                </div>
+                <div id="bookingsList" class="data-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="modalOverlay" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle"></h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
+
+    <script src="/admin/static/app.js"></script>
+</body>
+</html>
+
