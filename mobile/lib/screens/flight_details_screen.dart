@@ -246,11 +246,11 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen> {
           context: context,
           barrierDismissible: false,
           builder: (context) => AlertDialog(
-            title: Row(
+            title: const Row(
               children: [
                 Icon(Icons.check_circle, color: Colors.green, size: 32),
-                const SizedBox(width: 8),
-                const Expanded(child: Text('Booking Created!')),
+                SizedBox(width: 8),
+                Expanded(child: Text('Booking Created!')),
               ],
             ),
             content: SingleChildScrollView(
