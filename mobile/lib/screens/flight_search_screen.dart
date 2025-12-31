@@ -5,10 +5,12 @@
 // Users can filter by origin, destination, and date.
 // '''
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../api_service.dart';
 import '../models.dart';
+import '../utils/notification_helper.dart';
 import 'flight_details_screen.dart';
 import 'my_trips_screen.dart';
 import 'announcements_screen.dart';
@@ -21,10 +23,11 @@ class FlightSearchScreen extends StatefulWidget {
   State<FlightSearchScreen> createState() => _FlightSearchScreenState();
 }
 
-class _FlightSearchScreenState extends State<FlightSearchScreen> {
+class _FlightSearchScreenState extends State<FlightSearchScreen> with WidgetsBindingObserver {
   // Data
   List<Airport> _airports = [];
   List<Flight> _flights = [];
+  List<Announcement> _announcements = [];
   
   // Selected filters
   Airport? _selectedOrigin;
@@ -35,12 +38,68 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
   bool _isLoadingAirports = true;
   bool _isLoadingFlights = false;
   String? _errorMessage;
+  int _unreadCount = 0;
+  
+  // Auto-refresh timer
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadAirports();
     _searchFlights(); // Load all flights initially
+    _loadAnnouncements();
+    _startAutoRefresh();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Refresh when app comes to foreground
+    if (state == AppLifecycleState.resumed) {
+      _loadAnnouncements();
+    }
+  }
+
+  // Start auto-refresh timer (every 30 seconds)
+  void _startAutoRefresh() {
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted) {
+        _loadAnnouncements();
+      }
+    });
+  }
+
+  // Load announcements and update unread count
+  Future<void> _loadAnnouncements() async {
+    try {
+      final announcements = await ApiService.getAnnouncements();
+      final unreadCount = await NotificationHelper.getUnreadCount(announcements);
+      if (mounted) {
+        setState(() {
+          _announcements = announcements;
+          _unreadCount = unreadCount;
+        });
+      }
+    } catch (e) {
+      // Silently fail - announcements are not critical
+    }
+  }
+
+  // Refresh unread count when returning from announcements screen
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh unread count when screen becomes visible
+    _loadAnnouncements();
   }
 
   // Load airports for dropdown
@@ -147,15 +206,46 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> {
             },
             tooltip: 'My Trips',
           ),
-          // Announcements button
-          IconButton(
-            icon: const Icon(Icons.notifications),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const AnnouncementsScreen()),
-              );
-            },
-            tooltip: 'Announcements',
+          // Announcements button with badge
+          Stack(
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications),
+                onPressed: () async {
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const AnnouncementsScreen()),
+                  );
+                  // Refresh unread count after returning
+                  _loadAnnouncements();
+                },
+                tooltip: 'Announcements',
+              ),
+              if (_unreadCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Text(
+                      _unreadCount > 99 ? '99+' : '$_unreadCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ),

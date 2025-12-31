@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../api_service.dart';
 import '../models.dart';
+import '../utils/notification_helper.dart';
 import 'profile_screen.dart';
 
 class AnnouncementsScreen extends StatefulWidget {
@@ -40,6 +41,9 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
         _announcements = announcements;
         _isLoading = false;
       });
+      
+      // Mark announcements as seen when user views the screen
+      await NotificationHelper.markAsSeen(announcements);
     } catch (e) {
       setState(() {
         _errorMessage = e.toString().replaceAll('Exception: ', '');

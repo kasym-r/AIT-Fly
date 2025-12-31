@@ -60,8 +60,13 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen> {
 
   Future<void> _toggleSeat(Seat seat) async {
     if (!seat.isAvailable && seat.status != 'HELD') {
+      // Clear any existing snackbars and show error quickly
+      ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('This seat is not available')),
+        const SnackBar(
+          content: Text('This seat is not available'),
+          duration: Duration(seconds: 1),
+        ),
       );
       return;
     }
@@ -89,12 +94,7 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen> {
           );
         }
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Seat ${seat.seatNumber} deselected'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      // No notification for deselection - visual feedback is enough
     } else {
       // Select seat - hold it
       try {
@@ -119,18 +119,15 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen> {
             );
           }
         });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Seat ${seat.seatNumber} selected'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        // No notification for selection - visual feedback (green border) is enough
       } catch (e) {
+        // Clear any existing snackbars and show error quickly
+        ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to select seat: ${e.toString()}'),
+            content: Text('Failed to select seat: ${e.toString().replaceAll('Exception: ', '')}'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -139,8 +136,13 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen> {
 
   Future<void> _createBooking() async {
     if (_selectedSeats.isEmpty) {
+      // Clear any existing snackbars and show error quickly
+      ScaffoldMessenger.of(context).clearSnackBars();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select at least one seat')),
+        const SnackBar(
+          content: Text('Please select at least one seat'),
+          duration: Duration(seconds: 2),
+        ),
       );
       return;
     }
@@ -333,11 +335,13 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen> {
     } catch (e) {
       if (mounted) {
         Navigator.of(context).pop(); // Close loading dialog
+        // Clear any existing snackbars and show error
+        ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to create booking: ${e.toString().replaceAll('Exception: ', '')}'),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -661,7 +665,7 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen> {
             // Proceed to booking button
             if (_selectedSeats.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 80), // Extra bottom padding to avoid SnackBar
                 child: SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -678,6 +682,9 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen> {
                   ),
                 ),
               ),
+            // Extra spacing when no seats selected
+            if (_selectedSeats.isEmpty)
+              const SizedBox(height: 80),
           ],
         ),
       ),

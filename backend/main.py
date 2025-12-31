@@ -420,7 +420,10 @@ def update_flight_status(
     current_user: User = Depends(get_current_staff_user),
     db: Session = Depends(get_db)
 ):
-    """Update flight status - staff only"""
+    """
+    Update flight status - staff only.
+    Automatically creates announcements for all passengers who booked this flight.
+    """
     flight = db.query(Flight).filter(Flight.id == flight_id).first()
     if not flight:
         raise HTTPException(
@@ -428,8 +431,44 @@ def update_flight_status(
             detail="Flight not found"
         )
     
+    old_status = flight.status
     flight.status = new_status
     db.commit()
+    
+    # Create automatic announcement for passengers when status changes
+    if old_status != new_status:
+        # Get all confirmed bookings for this flight
+        bookings = db.query(Booking).filter(
+            and_(
+                Booking.flight_id == flight_id,
+                Booking.status == BookingStatus.CONFIRMED
+            )
+        ).all()
+        
+        if bookings:
+            # Create status-specific announcement messages
+            status_messages = {
+                FlightStatus.SCHEDULED: f"Flight {flight.flight_number} is now scheduled. Please check your booking details for departure time.",
+                FlightStatus.BOARDING: f"Flight {flight.flight_number} is now boarding! Please proceed to your gate immediately.",
+                FlightStatus.DEPARTED: f"Flight {flight.flight_number} has departed. Safe travels!",
+                FlightStatus.ARRIVED: f"Flight {flight.flight_number} has arrived. Thank you for flying with us!",
+                FlightStatus.DELAYED: f"Flight {flight.flight_number} has been delayed. Please check the updated departure time and stay near your gate.",
+                FlightStatus.CANCELLED: f"Flight {flight.flight_number} has been cancelled. Please contact customer service for rebooking options."
+            }
+            
+            title = f"Flight {flight.flight_number} Status Update"
+            message = status_messages.get(new_status, f"Flight {flight.flight_number} status has been updated to {new_status.value}.")
+            
+            # Create flight-specific announcement for all passengers
+            announcement = Announcement(
+                title=title,
+                message=message,
+                flight_id=flight_id,  # Flight-specific announcement
+                is_active=True
+            )
+            db.add(announcement)
+            db.commit()
+    
     return {"message": "Flight status updated", "status": new_status}
 
 
