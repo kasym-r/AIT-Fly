@@ -28,6 +28,18 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('createAnnouncementBtn').addEventListener('click', () => showCreateAnnouncementModal());
     document.getElementById('createUserBtn').addEventListener('click', () => showCreateUserModal());
     document.getElementById('refreshBookingsBtn').addEventListener('click', () => loadBookings());
+    const searchPNRBtn = document.getElementById('searchPNRBtn');
+    const searchPNR = document.getElementById('searchPNR');
+    if (searchPNRBtn) {
+        searchPNRBtn.addEventListener('click', () => searchBookingByPNR());
+    }
+    if (searchPNR) {
+        searchPNR.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                searchBookingByPNR();
+            }
+        });
+    }
 });
 
 // API Helper
@@ -262,6 +274,8 @@ async function loadFlights() {
                 </div>
                 <div class="data-card-actions">
                     <button class="btn btn-secondary" onclick="updateFlightStatus(${flight.id}, '${flight.status}')">Update Status</button>
+                    <button class="btn btn-secondary" onclick="updateFlightSchedule(${flight.id})">Update Schedule</button>
+                    <button class="btn btn-secondary" onclick="updateFlightGate(${flight.id})">Update Gate</button>
                     <button class="btn btn-danger" onclick="deleteFlight(${flight.id}, '${flight.flight_number}')">Delete</button>
                 </div>
             </div>
@@ -384,6 +398,94 @@ async function updateFlightStatus(flightId, currentStatus) {
             alert('Error: ' + error.message);
         }
     });
+}
+
+async function updateFlightSchedule(flightId) {
+    try {
+        const flight = await apiCall(`/flights/${flightId}`);
+        const content = `
+            <form id="updateScheduleForm">
+                <div class="form-group">
+                    <label>Departure Time:</label>
+                    <input type="datetime-local" name="departure_time" value="${new Date(flight.departure_time).toISOString().slice(0, 16)}" required>
+                </div>
+                <div class="form-group">
+                    <label>Arrival Time:</label>
+                    <input type="datetime-local" name="arrival_time" value="${new Date(flight.arrival_time).toISOString().slice(0, 16)}" required>
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary">Update Schedule</button>
+                </div>
+            </form>
+        `;
+        showModal('Update Flight Schedule', content);
+        
+        document.getElementById('updateScheduleForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const departureTime = new Date(formData.get('departure_time')).toISOString();
+            const arrivalTime = new Date(formData.get('arrival_time')).toISOString();
+            
+            try {
+                await apiCall(`/flights/${flightId}/schedule?departure_time=${departureTime}&arrival_time=${arrivalTime}`, {
+                    method: 'PATCH'
+                });
+                closeModal();
+                loadFlights();
+                showSuccess('Schedule updated successfully!');
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        });
+    } catch (error) {
+        alert('Error loading flight: ' + error.message);
+    }
+}
+
+async function updateFlightGate(flightId) {
+    try {
+        const flight = await apiCall(`/flights/${flightId}`);
+        const content = `
+            <form id="updateGateForm">
+                <div class="form-group">
+                    <label>Gate:</label>
+                    <input type="text" name="gate" value="${flight.gate || ''}" placeholder="A12">
+                </div>
+                <div class="form-group">
+                    <label>Terminal:</label>
+                    <input type="text" name="terminal" value="${flight.terminal || ''}" placeholder="Terminal 1">
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary">Update Gate/Terminal</button>
+                </div>
+            </form>
+        `;
+        showModal('Update Flight Gate/Terminal', content);
+        
+        document.getElementById('updateGateForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const gate = formData.get('gate');
+            const terminal = formData.get('terminal');
+            
+            try {
+                const params = new URLSearchParams();
+                if (gate) params.append('gate', gate);
+                if (terminal) params.append('terminal', terminal);
+                
+                await apiCall(`/flights/${flightId}/gate?${params.toString()}`, {
+                    method: 'PATCH'
+                });
+                closeModal();
+                loadFlights();
+                showSuccess('Gate/Terminal updated successfully!');
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        });
+    } catch (error) {
+        alert('Error loading flight: ' + error.message);
+    }
 }
 
 async function deleteFlight(flightId, flightNumber) {
@@ -558,6 +660,42 @@ function showCreateAirplaneModal() {
     `;
     showModal('Create New Airplane', content);
     
+    // Preview seat map function
+    window.previewSeatMap = function() {
+        const formData = new FormData(document.getElementById('createAirplaneForm'));
+        const rows = parseInt(formData.get('rows')) || 0;
+        const seatsPerRow = parseInt(formData.get('seats_per_row')) || 0;
+        
+        if (rows === 0 || seatsPerRow === 0) {
+            alert('Please enter rows and seats per row first');
+            return;
+        }
+        
+        const previewDiv = document.getElementById('seatMapPreview');
+        const previewContent = document.getElementById('previewContent');
+        previewDiv.style.display = 'block';
+        
+        // Generate seat map preview
+        let preview = '<div style="text-align: center; margin-bottom: 10px;"><strong>Front of Aircraft</strong></div>';
+        preview += '<div style="display: flex; justify-content: center; gap: 2px; margin-bottom: 5px;">';
+        for (let i = 0; i < seatsPerRow; i++) {
+            preview += `<span style="width: 30px; text-align: center;">${String.fromCharCode(65 + i)}</span>`;
+        }
+        preview += '</div>';
+        
+        for (let row = 1; row <= rows; row++) {
+            preview += `<div style="display: flex; justify-content: center; gap: 2px; margin-bottom: 2px;">`;
+            preview += `<span style="width: 30px; text-align: right; margin-right: 5px;">${row}</span>`;
+            for (let seat = 0; seat < seatsPerRow; seat++) {
+                const seatLetter = String.fromCharCode(65 + seat);
+                preview += `<span style="width: 30px; height: 30px; border: 1px solid #ccc; display: inline-block; text-align: center; line-height: 30px; background: #e8f5e9;">${seatLetter}</span>`;
+            }
+            preview += '</div>';
+        }
+        
+        previewContent.innerHTML = preview;
+    };
+    
     document.getElementById('createAirplaneForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
@@ -629,12 +767,14 @@ async function loadAnnouncements() {
             const targetText = flight 
                 ? `<span class="status-badge status-boarding">Flight ${flight.flight_number}</span>` 
                 : '<span class="status-badge status-scheduled">General</span>';
+            const typeColor = getAnnouncementTypeColor(announcement.announcement_type || 'GENERAL');
             
             return `
                 <div class="data-card">
                     <div class="data-card-header">
                         <div class="data-card-title">${announcement.title}</div>
                         <div>
+                            <span class="status-badge" style="background: ${typeColor}">${announcement.announcement_type || 'GENERAL'}</span>
                             ${targetText}
                             ${announcement.is_active ? '<span class="status-badge status-arrived">Active</span>' : '<span class="status-badge status-cancelled">Inactive</span>'}
                         </div>
@@ -679,6 +819,16 @@ async function showCreateAnnouncementModal() {
                 <textarea name="message" rows="5" required placeholder="Enter announcement message..."></textarea>
             </div>
             <div class="form-group">
+                <label>Announcement Type:</label>
+                <select name="announcement_type" required>
+                    <option value="GENERAL">General Information</option>
+                    <option value="DELAY">Delay</option>
+                    <option value="CANCELLATION">Cancellation</option>
+                    <option value="GATE_CHANGE">Gate Change</option>
+                    <option value="BOARDING">Boarding Started</option>
+                </select>
+            </div>
+            <div class="form-group">
                 <label>Target Audience:</label>
                 <select name="flight_id">
                     <option value="">General (All Users)</option>
@@ -700,6 +850,7 @@ async function showCreateAnnouncementModal() {
         const data = {
             title: formData.get('title'),
             message: formData.get('message'),
+            announcement_type: formData.get('announcement_type'),
             flight_id: flightId ? parseInt(flightId) : null
         };
 
@@ -835,22 +986,173 @@ async function loadBookings() {
             return;
         }
 
-        listDiv.innerHTML = bookings.map(booking => `
+        // Group bookings by flight
+        const bookingsByFlight = {};
+        bookings.forEach(booking => {
+            const flightId = booking.flight_id;
+            if (!bookingsByFlight[flightId]) {
+                bookingsByFlight[flightId] = [];
+            }
+            bookingsByFlight[flightId].push(booking);
+        });
+
+        listDiv.innerHTML = Object.entries(bookingsByFlight).map(([flightId, flightBookings]) => {
+            const flight = flightBookings[0].flight;
+            return `
+                <div class="data-card" style="margin-bottom: 20px;">
+                    <div class="data-card-header">
+                        <div class="data-card-title">${flight.flight_number} - ${flight.origin_airport.code} → ${flight.destination_airport.code}</div>
+                        <button class="btn btn-secondary" onclick="viewFlightBookings(${flightId})">View All (${flightBookings.length})</button>
+                    </div>
+                    <div class="data-card-body">
+                        <p><strong>Departure:</strong> ${formatDateTime(flight.departure_time)}</p>
+                        <p><strong>Status:</strong> ${flight.status}</p>
+                        <p><strong>Bookings:</strong> ${flightBookings.length}</p>
+                    </div>
+                </div>
+            `;
+        }).join('') + `
             <div class="data-card">
-                <div class="data-card-header">
-                    <div class="data-card-title">${booking.booking_reference}</div>
-                </div>
-                <div class="data-card-body">
-                    <p><strong>Flight:</strong> ${booking.flight.flight_number}</p>
-                    <p><strong>Route:</strong> ${booking.flight.origin_airport.code} → ${booking.flight.destination_airport.code}</p>
-                    <p><strong>Seat:</strong> ${booking.seat.row_number}${booking.seat.seat_letter}</p>
-                    <p><strong>Total Price:</strong> $${booking.total_price.toFixed(2)}</p>
-                    <p><strong>Created:</strong> ${formatDateTime(booking.created_at)}</p>
-                </div>
+                <h3>All Bookings</h3>
+                ${bookings.map(booking => `
+                    <div style="border-bottom: 1px solid #eee; padding: 12px 0;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>PNR:</strong> ${booking.booking_reference} | 
+                                <strong>Flight:</strong> ${booking.flight.flight_number} | 
+                                <strong>Seat:</strong> ${booking.seat.row_number}${booking.seat.seat_letter} | 
+                                <strong>Status:</strong> ${booking.status}
+                            </div>
+                            <div>
+                                ${booking.flight.status !== 'DEPARTED' ? `
+                                    <button class="btn btn-danger" onclick="cancelBookingStaff(${booking.id}, '${booking.booking_reference}')" style="margin-right: 8px;">Cancel</button>
+                                    <button class="btn btn-secondary" onclick="reassignSeat(${booking.id}, ${booking.flight_id})">Reassign Seat</button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
             </div>
-        `).join('');
+        `;
     } catch (error) {
         listDiv.innerHTML = `<div class="error-message show">Error: ${error.message}</div>`;
+    }
+}
+
+async function viewFlightBookings(flightId) {
+    try {
+        const bookings = await apiCall(`/staff/bookings/flight/${flightId}`);
+        const content = `
+            <div style="max-height: 500px; overflow-y: auto;">
+                <h3>Bookings for Flight ${bookings[0]?.flight?.flight_number || ''}</h3>
+                ${bookings.map(booking => `
+                    <div style="border-bottom: 1px solid #eee; padding: 12px 0;">
+                        <p><strong>PNR:</strong> ${booking.booking_reference}</p>
+                        <p><strong>Seat:</strong> ${booking.seat.row_number}${booking.seat.seat_letter}</p>
+                        <p><strong>Status:</strong> ${booking.status}</p>
+                        <p><strong>Price:</strong> $${booking.total_price.toFixed(2)}</p>
+                        ${booking.flight.status !== 'DEPARTED' ? `
+                            <button class="btn btn-danger" onclick="cancelBookingStaff(${booking.id}, '${booking.booking_reference}')">Cancel</button>
+                            <button class="btn btn-secondary" onclick="reassignSeat(${booking.id}, ${booking.flight_id})">Reassign Seat</button>
+                        ` : ''}
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        showModal('Flight Bookings', content);
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+async function searchBookingByPNR() {
+    const pnr = document.getElementById('searchPNR').value.trim().toUpperCase();
+    if (!pnr) {
+        alert('Please enter a PNR');
+        return;
+    }
+    
+    try {
+        const booking = await apiCall(`/staff/bookings/search?pnr=${pnr}`);
+        const content = `
+            <div>
+                <h3>Booking Details</h3>
+                <p><strong>PNR:</strong> ${booking.booking_reference}</p>
+                <p><strong>Flight:</strong> ${booking.flight.flight_number}</p>
+                <p><strong>Route:</strong> ${booking.flight.origin_airport.code} → ${booking.flight.destination_airport.code}</p>
+                <p><strong>Seat:</strong> ${booking.seat.row_number}${booking.seat.seat_letter}</p>
+                <p><strong>Status:</strong> ${booking.status}</p>
+                <p><strong>Price:</strong> $${booking.total_price.toFixed(2)}</p>
+                ${booking.flight.status !== 'DEPARTED' ? `
+                    <button class="btn btn-danger" onclick="cancelBookingStaff(${booking.id}, '${booking.booking_reference}')">Cancel Booking</button>
+                    <button class="btn btn-secondary" onclick="reassignSeat(${booking.id}, ${booking.flight_id})">Reassign Seat</button>
+                ` : ''}
+            </div>
+        `;
+        showModal('Booking Search Result', content);
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+async function cancelBookingStaff(bookingId, pnr) {
+    if (!confirm(`Are you sure you want to cancel booking ${pnr}?`)) {
+        return;
+    }
+    
+    try {
+        await apiCall(`/staff/bookings/${bookingId}`, {
+            method: 'DELETE'
+        });
+        loadBookings();
+        closeModal();
+        showSuccess('Booking cancelled successfully!');
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+async function reassignSeat(bookingId, flightId) {
+    try {
+        // Load available seats for this flight
+        const seats = await apiCall(`/flights/${flightId}/seats`);
+        const availableSeats = seats.filter(s => s.status === 'AVAILABLE' || s.status === 'HELD');
+        
+        const content = `
+            <form id="reassignSeatForm">
+                <div class="form-group">
+                    <label>Select New Seat:</label>
+                    <select name="new_seat_id" required>
+                        ${availableSeats.map(seat => 
+                            `<option value="${seat.id}">Row ${seat.row_number}${seat.seat_letter} - ${seat.seat_class} ($${seat.price.toFixed(2)})</option>`
+                        ).join('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary">Reassign Seat</button>
+                </div>
+            </form>
+        `;
+        showModal('Reassign Seat', content);
+        
+        document.getElementById('reassignSeatForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const newSeatId = parseInt(formData.get('new_seat_id'));
+            
+            try {
+                await apiCall(`/staff/bookings/${bookingId}/reassign-seat?new_seat_id=${newSeatId}`, {
+                    method: 'PATCH'
+                });
+                closeModal();
+                loadBookings();
+                showSuccess('Seat reassigned successfully!');
+            } catch (error) {
+                alert('Error: ' + error.message);
+            }
+        });
+    } catch (error) {
+        alert('Error: ' + error.message);
     }
 }
 
@@ -869,5 +1171,20 @@ function formatDateTime(dateString) {
 function showSuccess(message) {
     // You can implement a toast notification here
     alert(message);
+}
+
+function getAnnouncementTypeColor(type) {
+    switch(type) {
+        case 'DELAY':
+            return '#ff9800';
+        case 'CANCELLATION':
+            return '#f44336';
+        case 'GATE_CHANGE':
+            return '#2196f3';
+        case 'BOARDING':
+            return '#4caf50';
+        default:
+            return '#9e9e9e';
+    }
 }
 

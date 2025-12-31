@@ -95,7 +95,11 @@
             <div id="bookingsTab" class="tab-content">
                 <div class="tab-header">
                     <h2>All Bookings</h2>
-                    <button id="refreshBookingsBtn" class="btn btn-secondary">Refresh</button>
+                    <div>
+                        <input type="text" id="searchPNR" placeholder="Search by PNR..." style="padding: 8px; margin-right: 8px; width: 200px;">
+                        <button id="searchPNRBtn" class="btn btn-secondary">Search</button>
+                        <button id="refreshBookingsBtn" class="btn btn-secondary">Refresh</button>
+                    </div>
                 </div>
                 <div id="bookingsList" class="data-list"></div>
             </div>

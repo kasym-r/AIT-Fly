@@ -129,17 +129,38 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                             margin: const EdgeInsets.only(bottom: 12),
                             child: ListTile(
                               contentPadding: const EdgeInsets.all(16),
-                              leading: const Icon(
-                                Icons.info_outline,
+                              leading: Icon(
+                                _getIconForType(announcement.announcementType),
                                 size: 40,
-                                color: Colors.blue,
+                                color: _getColorForType(announcement.announcementType),
                               ),
-                              title: Text(
-                                announcement.title,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                ),
+                              title: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      announcement.title,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 18,
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: _getColorForType(announcement.announcementType).withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      announcement.typeLabel,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: _getColorForType(announcement.announcementType),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                               subtitle: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -166,6 +187,36 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                       ),
                     ),
     );
+  }
+
+  IconData _getIconForType(String type) {
+    switch (type) {
+      case 'DELAY':
+        return Icons.schedule;
+      case 'CANCELLATION':
+        return Icons.cancel;
+      case 'GATE_CHANGE':
+        return Icons.directions_walk;
+      case 'BOARDING':
+        return Icons.flight_takeoff;
+      default:
+        return Icons.info_outline;
+    }
+  }
+
+  Color _getColorForType(String type) {
+    switch (type) {
+      case 'DELAY':
+        return Colors.orange;
+      case 'CANCELLATION':
+        return Colors.red;
+      case 'GATE_CHANGE':
+        return Colors.blue;
+      case 'BOARDING':
+        return Colors.green;
+      default:
+        return Colors.blue;
+    }
   }
 }
 

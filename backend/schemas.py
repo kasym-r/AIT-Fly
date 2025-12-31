@@ -287,6 +287,7 @@ class AnnouncementCreate(BaseModel):
     """Schema for creating announcement"""
     title: str
     message: str
+    announcement_type: Optional[str] = "GENERAL"  # DELAY, CANCELLATION, GATE_CHANGE, BOARDING, GENERAL
     flight_id: Optional[int] = None  # None = general announcement, set = flight-specific
 
 
@@ -295,6 +296,7 @@ class AnnouncementResponse(BaseModel):
     id: int
     title: str
     message: str
+    announcement_type: str
     flight_id: Optional[int]  # None = general, set = for specific flight
     created_at: datetime
     is_active: bool

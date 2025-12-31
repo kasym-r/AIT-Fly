@@ -49,7 +49,8 @@ class FlightStatus(str, enum.Enum):
     SCHEDULED = "SCHEDULED"
     BOARDING = "BOARDING"
     DEPARTED = "DEPARTED"
-    ARRIVED = "ARRIVED"
+    ARRIVED = "ARRIVED"  # Same as LANDED
+    LANDED = "ARRIVED"   # Alias for ARRIVED
     DELAYED = "DELAYED"
     CANCELLED = "CANCELLED"
 
@@ -65,6 +66,15 @@ class SeatCategory(str, enum.Enum):
     """Seat categories"""
     STANDARD = "STANDARD"           # Regular seats
     EXTRA_LEGROOM = "EXTRA_LEGROOM" # Extra legroom seats (exit rows, front rows)
+
+
+class AnnouncementType(str, enum.Enum):
+    """Announcement types"""
+    DELAY = "DELAY"
+    CANCELLATION = "CANCELLATION"
+    GATE_CHANGE = "GATE_CHANGE"
+    BOARDING = "BOARDING"
+    GENERAL = "GENERAL"
 
 
 # ============ MODELS ============
@@ -279,6 +289,7 @@ class Announcement(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String, nullable=False)
     message = Column(String, nullable=False)
+    announcement_type = Column(SQLEnum(AnnouncementType), default=AnnouncementType.GENERAL)
     flight_id = Column(Integer, ForeignKey("flights.id"), nullable=True)  # None = general announcement
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)  # Staff can deactivate announcements

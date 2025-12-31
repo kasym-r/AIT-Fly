@@ -232,6 +232,17 @@ class ApiService {
     _handleError(response);
   }
 
+  /// Release a held seat
+  static Future<void> releaseSeat(int flightId, int seatId) async {
+    final url = Uri.parse('$baseUrl/flights/$flightId/seats/$seatId/hold');
+    final response = await http.delete(
+      url,
+      headers: await _getHeaders(),
+    );
+
+    _handleError(response);
+  }
+
   // ============ BOOKINGS ============
 
   /// Create a booking

@@ -436,6 +436,7 @@ class Announcement {
   final int id;
   final String title;
   final String message;
+  final String announcementType;  // DELAY, CANCELLATION, GATE_CHANGE, BOARDING, GENERAL
   final int? flightId;  // null = general announcement, set = flight-specific
   final DateTime createdAt;
   final bool isActive;
@@ -444,6 +445,7 @@ class Announcement {
     required this.id,
     required this.title,
     required this.message,
+    required this.announcementType,
     this.flightId,
     required this.createdAt,
     required this.isActive,
@@ -454,6 +456,7 @@ class Announcement {
       id: json['id'],
       title: json['title'],
       message: json['message'],
+      announcementType: json['announcement_type'] ?? 'GENERAL',
       flightId: json['flight_id'],
       createdAt: DateTime.parse(json['created_at']),
       isActive: json['is_active'],
@@ -461,6 +464,21 @@ class Announcement {
   }
 
   bool get isGeneral => flightId == null;
+  
+  String get typeLabel {
+    switch (announcementType) {
+      case 'DELAY':
+        return 'Delay';
+      case 'CANCELLATION':
+        return 'Cancellation';
+      case 'GATE_CHANGE':
+        return 'Gate Change';
+      case 'BOARDING':
+        return 'Boarding';
+      default:
+        return 'General';
+    }
+  }
 }
 
 // ============ PASSENGER PROFILE MODELS ============

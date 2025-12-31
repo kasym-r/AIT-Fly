@@ -75,26 +75,58 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen> {
     final isSelected = _selectedSeats.any((s) => s.id == seat.id);
     
     if (isSelected) {
-      // Deselect seat - release hold
-      setState(() {
-        _selectedSeats.removeWhere((s) => s.id == seat.id);
-        // Update seat status back to available
-        final index = _seats.indexWhere((s) => s.id == seat.id);
-        if (index != -1) {
-          _seats[index] = Seat(
-            id: seat.id,
-            flightId: seat.flightId,
-            rowNumber: seat.rowNumber,
-            seatLetter: seat.seatLetter,
-            seatClass: seat.seatClass,
-            seatCategory: seat.seatCategory,
-            priceMultiplier: seat.priceMultiplier,
-            status: 'AVAILABLE',
-            price: seat.price,
-          );
-        }
-      });
-      // No notification for deselection - visual feedback is enough
+      // Deselect seat - release hold on backend
+      try {
+        await ApiService.releaseSeat(widget.flightId, seat.id);
+        
+        setState(() {
+          _selectedSeats.removeWhere((s) => s.id == seat.id);
+          // Update seat status back to available in local list
+          final index = _seats.indexWhere((s) => s.id == seat.id);
+          if (index != -1) {
+            _seats[index] = Seat(
+              id: seat.id,
+              flightId: seat.flightId,
+              rowNumber: seat.rowNumber,
+              seatLetter: seat.seatLetter,
+              seatClass: seat.seatClass,
+              seatCategory: seat.seatCategory,
+              priceMultiplier: seat.priceMultiplier,
+              status: 'AVAILABLE',
+              price: seat.price,
+            );
+          }
+        });
+        // No notification for deselection - visual feedback is enough
+      } catch (e) {
+        // If release fails, still update UI but show error
+        setState(() {
+          _selectedSeats.removeWhere((s) => s.id == seat.id);
+          // Try to update seat status anyway
+          final index = _seats.indexWhere((s) => s.id == seat.id);
+          if (index != -1) {
+            _seats[index] = Seat(
+              id: seat.id,
+              flightId: seat.flightId,
+              rowNumber: seat.rowNumber,
+              seatLetter: seat.seatLetter,
+              seatClass: seat.seatClass,
+              seatCategory: seat.seatCategory,
+              priceMultiplier: seat.priceMultiplier,
+              status: 'AVAILABLE',
+              price: seat.price,
+            );
+          }
+        });
+        ScaffoldMessenger.of(context).clearSnackBars();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to release seat: ${e.toString().replaceAll('Exception: ', '')}'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     } else {
       // Select seat - hold it
       try {

@@ -15,13 +15,14 @@ import os
 from sqlalchemy import and_, or_
 from datetime import datetime, timedelta
 import secrets
-from typing import List
+from typing import List, Optional
 
 from database import Base, engine, get_db
 from models import (
     User, PassengerProfile, Airport, Airplane, Flight, Seat, Booking,
     Payment, Ticket, CheckIn, Announcement,
-    UserRole, PaymentMethod, PaymentStatus, SeatStatus, FlightStatus, BookingStatus
+    UserRole, PaymentMethod, PaymentStatus, SeatStatus, FlightStatus, BookingStatus,
+    AnnouncementType, SeatCategory
 )
 from schemas import (
     UserRegister, UserLogin, Token, UserResponse, PasswordChange,
@@ -44,6 +45,23 @@ from jose import jwt, JWTError
 # Create database tables
 # This creates all tables defined in models.py
 Base.metadata.create_all(bind=engine)
+
+# Migrate existing database: Add announcement_type column if it doesn't exist
+# This handles the case where the database was created before announcement_type was added
+from sqlalchemy import text, inspect
+with engine.connect() as conn:
+    inspector = inspect(engine)
+    columns = [col['name'] for col in inspector.get_columns('announcements')]
+    if 'announcement_type' not in columns:
+        try:
+            # SQLite doesn't support ALTER TABLE ADD COLUMN with DEFAULT for enums
+            # So we'll add it as TEXT and set default values
+            conn.execute(text("ALTER TABLE announcements ADD COLUMN announcement_type TEXT DEFAULT 'GENERAL'"))
+            conn.commit()
+            print("✓ Added announcement_type column to announcements table")
+        except Exception as e:
+            print(f"Note: Could not add announcement_type column (may already exist): {e}")
+            conn.rollback()
 
 # Create FastAPI app
 app = FastAPI(
@@ -446,23 +464,46 @@ def update_flight_status(
         ).all()
         
         if bookings:
-            # Create status-specific announcement messages
-            status_messages = {
-                FlightStatus.SCHEDULED: f"Flight {flight.flight_number} is now scheduled. Please check your booking details for departure time.",
-                FlightStatus.BOARDING: f"Flight {flight.flight_number} is now boarding! Please proceed to your gate immediately.",
-                FlightStatus.DEPARTED: f"Flight {flight.flight_number} has departed. Safe travels!",
-                FlightStatus.ARRIVED: f"Flight {flight.flight_number} has arrived. Thank you for flying with us!",
-                FlightStatus.DELAYED: f"Flight {flight.flight_number} has been delayed. Please check the updated departure time and stay near your gate.",
-                FlightStatus.CANCELLED: f"Flight {flight.flight_number} has been cancelled. Please contact customer service for rebooking options."
+            # Create status-specific announcement messages and types
+            status_config = {
+                FlightStatus.SCHEDULED: {
+                    "type": AnnouncementType.GENERAL,
+                    "message": f"Flight {flight.flight_number} is now scheduled. Please check your booking details for departure time."
+                },
+                FlightStatus.BOARDING: {
+                    "type": AnnouncementType.BOARDING,
+                    "message": f"Flight {flight.flight_number} is now boarding! Please proceed to your gate immediately."
+                },
+                FlightStatus.DEPARTED: {
+                    "type": AnnouncementType.GENERAL,
+                    "message": f"Flight {flight.flight_number} has departed. Safe travels!"
+                },
+                FlightStatus.ARRIVED: {
+                    "type": AnnouncementType.GENERAL,
+                    "message": f"Flight {flight.flight_number} has arrived. Thank you for flying with us!"
+                },
+                FlightStatus.DELAYED: {
+                    "type": AnnouncementType.DELAY,
+                    "message": f"Flight {flight.flight_number} has been delayed. Please check the updated departure time and stay near your gate."
+                },
+                FlightStatus.CANCELLED: {
+                    "type": AnnouncementType.CANCELLATION,
+                    "message": f"Flight {flight.flight_number} has been cancelled. Please contact customer service for rebooking options."
+                }
             }
             
+            config = status_config.get(new_status, {
+                "type": AnnouncementType.GENERAL,
+                "message": f"Flight {flight.flight_number} status has been updated to {new_status.value}."
+            })
+            
             title = f"Flight {flight.flight_number} Status Update"
-            message = status_messages.get(new_status, f"Flight {flight.flight_number} status has been updated to {new_status.value}.")
             
             # Create flight-specific announcement for all passengers
             announcement = Announcement(
                 title=title,
-                message=message,
+                message=config["message"],
+                announcement_type=config["type"],
                 flight_id=flight_id,  # Flight-specific announcement
                 is_active=True
             )
@@ -470,6 +511,111 @@ def update_flight_status(
             db.commit()
     
     return {"message": "Flight status updated", "status": new_status}
+
+
+@app.patch("/flights/{flight_id}/schedule")
+def update_flight_schedule(
+    flight_id: int,
+    departure_time: Optional[datetime] = None,
+    arrival_time: Optional[datetime] = None,
+    current_user: User = Depends(get_current_staff_user),
+    db: Session = Depends(get_db)
+):
+    """Update flight schedule (departure/arrival times) - staff only"""
+    flight = db.query(Flight).filter(Flight.id == flight_id).first()
+    if not flight:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Flight not found"
+        )
+    
+    if departure_time:
+        flight.departure_time = departure_time
+    if arrival_time:
+        flight.arrival_time = arrival_time
+    
+    db.commit()
+    
+    # Create announcement if schedule changed
+    if departure_time or arrival_time:
+        bookings = db.query(Booking).filter(
+            and_(
+                Booking.flight_id == flight_id,
+                Booking.status == BookingStatus.CONFIRMED
+            )
+        ).all()
+        
+        if bookings:
+            dept_msg = f"New departure: {departure_time.strftime('%Y-%m-%d %H:%M')}" if departure_time else ""
+            arr_msg = f"New arrival: {arrival_time.strftime('%Y-%m-%d %H:%M')}" if arrival_time else ""
+            message = f"Flight {flight.flight_number} schedule has been updated. {dept_msg} {arr_msg}".strip()
+            
+            announcement = Announcement(
+                title=f"Flight {flight.flight_number} Schedule Update",
+                message=message,
+                announcement_type=AnnouncementType.DELAY,
+                flight_id=flight_id,
+                is_active=True
+            )
+            db.add(announcement)
+            db.commit()
+    
+    return {"message": "Flight schedule updated", "flight": flight}
+
+
+@app.patch("/flights/{flight_id}/gate")
+def update_flight_gate(
+    flight_id: int,
+    gate: Optional[str] = None,
+    terminal: Optional[str] = None,
+    current_user: User = Depends(get_current_staff_user),
+    db: Session = Depends(get_db)
+):
+    """Update flight gate and/or terminal - staff only. Creates gate change announcement if gate changed."""
+    flight = db.query(Flight).filter(Flight.id == flight_id).first()
+    if not flight:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Flight not found"
+        )
+    
+    old_gate = flight.gate
+    old_terminal = flight.terminal
+    
+    if gate is not None:
+        flight.gate = gate
+    if terminal is not None:
+        flight.terminal = terminal
+    
+    db.commit()
+    
+    # Create gate change announcement if gate changed
+    if gate and gate != old_gate:
+        bookings = db.query(Booking).filter(
+            and_(
+                Booking.flight_id == flight_id,
+                Booking.status == BookingStatus.CONFIRMED
+            )
+        ).all()
+        
+        if bookings:
+            gate_msg = f"Gate changed to {gate}"
+            terminal_msg = f"Terminal {terminal}" if terminal else ""
+            message = f"Flight {flight.flight_number} gate change: {gate_msg}. {terminal_msg}".strip()
+            if old_gate:
+                message = f"Flight {flight.flight_number} gate has changed from {old_gate} to {gate}. {terminal_msg}".strip()
+            
+            announcement = Announcement(
+                title=f"Flight {flight.flight_number} Gate Change",
+                message=message,
+                announcement_type=AnnouncementType.GATE_CHANGE,
+                flight_id=flight_id,
+                is_active=True
+            )
+            db.add(announcement)
+            db.commit()
+    
+    return {"message": "Flight gate/terminal updated", "flight": flight}
 
 
 # ============ DELETE ENDPOINTS (Staff Only) ============
@@ -754,6 +900,60 @@ def hold_seat(
     return {"message": "Seat held for 10 minutes", "expires_at": seat.hold_expires_at}
 
 
+@app.delete("/flights/{flight_id}/seats/{seat_id}/hold")
+def release_seat(
+    flight_id: int,
+    seat_id: int,
+    current_user: User = Depends(get_current_passenger_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Release a held seat.
+    This is called when user deselects a seat before creating a booking.
+    """
+    seat = db.query(Seat).filter(
+        and_(Seat.id == seat_id, Seat.flight_id == flight_id)
+    ).first()
+    
+    if not seat:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Seat not found"
+        )
+    
+    # Only allow releasing if seat is HELD and not booked
+    if seat.status == SeatStatus.HELD:
+        # Check if there's a CREATED booking for this seat by this user
+        existing_booking = db.query(Booking).filter(
+            and_(
+                Booking.seat_id == seat_id,
+                Booking.user_id == current_user.id,
+                Booking.status == BookingStatus.CREATED
+            )
+        ).first()
+        
+        if existing_booking:
+            # Don't release if there's a booking - user should cancel booking instead
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot release seat with existing booking. Cancel the booking instead."
+            )
+        
+        # Release the hold
+        seat.status = SeatStatus.AVAILABLE
+        seat.hold_expires_at = None
+        db.commit()
+        return {"message": "Seat released"}
+    elif seat.status == SeatStatus.BOOKED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot release a booked seat"
+        )
+    else:
+        # Seat is already available
+        return {"message": "Seat is already available"}
+
+
 # ============ BOOKING ROUTES ============
 
 @app.post("/bookings", response_model=BookingResponse, status_code=status.HTTP_201_CREATED)
@@ -824,21 +1024,47 @@ def create_booking(
             detail="Seat is already booked"
         )
     
-    # Check if user already has a pending booking for this seat
+    # Check for ANY existing booking for this seat (due to UNIQUE constraint on seat_id)
     existing_booking = db.query(Booking).filter(
-        and_(
-            Booking.seat_id == seat.id,
-            Booking.user_id == current_user.id,
-            Booking.status == BookingStatus.CREATED
-        )
+        Booking.seat_id == seat.id
     ).first()
     
     if existing_booking:
-        # User already has a pending booking for this seat - they should pay for it, not create a new one
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"You already have a pending booking for this seat (Ref: {existing_booking.booking_reference}). Please complete payment for that booking instead of creating a new one."
-        )
+        # There's already a booking for this seat
+        if existing_booking.user_id == current_user.id:
+            # User's own booking
+            if existing_booking.status == BookingStatus.CREATED:
+                # User already has a pending booking - they should pay for it
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"You already have a pending booking for this seat (Ref: {existing_booking.booking_reference}). Please complete payment for that booking instead of creating a new one."
+                )
+            elif existing_booking.status == BookingStatus.CONFIRMED:
+                # User already has a confirmed booking - cannot create another
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"You already have a confirmed booking for this seat (Ref: {existing_booking.booking_reference})."
+                )
+            elif existing_booking.status == BookingStatus.CANCELLED:
+                # User has a cancelled booking - delete it and allow new booking
+                db.delete(existing_booking)
+                db.commit()
+        else:
+            # Another user's booking
+            if existing_booking.status == BookingStatus.CREATED:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Seat is currently held by another user. Please select another seat or wait for it to be released."
+                )
+            elif existing_booking.status == BookingStatus.CONFIRMED:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Seat is already booked by another user."
+                )
+            elif existing_booking.status == BookingStatus.CANCELLED:
+                # Cancelled booking by another user - delete it and allow new booking
+                db.delete(existing_booking)
+                db.commit()
     
     # Handle HELD seats
     if seat.status == SeatStatus.HELD:
@@ -847,27 +1073,6 @@ def create_booking(
             # Hold expired, release the seat - allow booking
             seat.status = SeatStatus.AVAILABLE
             seat.hold_expires_at = None
-        else:
-            # Seat is HELD but not expired
-            # Check if there's any booking for this seat (by any user)
-            any_booking = db.query(Booking).filter(
-                and_(
-                    Booking.seat_id == seat.id,
-                    Booking.status == BookingStatus.CREATED
-                )
-            ).first()
-            
-            if any_booking:
-                # There's a booking for this seat - it's held by someone else
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Seat is currently held by another user. Please select another seat or wait for it to be released."
-                )
-            else:
-                # Seat is HELD but no booking exists - this might be from a failed booking attempt
-                # Allow booking creation and take over the hold
-                # (The hold will be refreshed when we create the booking)
-                pass
     
     # Calculate price
     total_price = flight.base_price * seat.price_multiplier
@@ -1415,7 +1620,28 @@ def get_announcements(
             Announcement.flight_id.in_(user_flight_ids)  # User's flight announcements
         )
     ).order_by(Announcement.created_at.desc()).all()
-    return announcements
+    
+    # Convert to response format, handling missing announcement_type
+    result = []
+    for ann in announcements:
+        # Handle case where announcement_type might not exist in DB yet
+        ann_type = getattr(ann, 'announcement_type', None)
+        if ann_type is None:
+            ann_type = AnnouncementType.GENERAL
+        elif isinstance(ann_type, AnnouncementType):
+            ann_type = ann_type.value
+        
+        result.append(AnnouncementResponse(
+            id=ann.id,
+            title=ann.title,
+            message=ann.message,
+            announcement_type=ann_type,
+            flight_id=ann.flight_id,
+            created_at=ann.created_at,
+            is_active=ann.is_active
+        ))
+    
+    return result
 
 
 @app.get("/announcements/public", response_model=List[AnnouncementResponse])
@@ -1425,7 +1651,27 @@ def get_public_announcements(db: Session = Depends(get_db)):
         Announcement.is_active == True,
         Announcement.flight_id == None
     ).order_by(Announcement.created_at.desc()).all()
-    return announcements
+    
+    # Convert to response format, handling missing announcement_type
+    result = []
+    for ann in announcements:
+        ann_type = getattr(ann, 'announcement_type', None)
+        if ann_type is None:
+            ann_type = AnnouncementType.GENERAL
+        elif isinstance(ann_type, AnnouncementType):
+            ann_type = ann_type.value
+        
+        result.append(AnnouncementResponse(
+            id=ann.id,
+            title=ann.title,
+            message=ann.message,
+            announcement_type=ann_type,
+            flight_id=ann.flight_id,
+            created_at=ann.created_at,
+            is_active=ann.is_active
+        ))
+    
+    return result
 
 
 @app.get("/staff/announcements", response_model=List[AnnouncementResponse])
@@ -1435,7 +1681,27 @@ def get_all_announcements(
 ):
     """Get all announcements (including flight-specific) - staff only"""
     announcements = db.query(Announcement).order_by(Announcement.created_at.desc()).all()
-    return announcements
+    
+    # Convert to response format, handling missing announcement_type
+    result = []
+    for ann in announcements:
+        ann_type = getattr(ann, 'announcement_type', None)
+        if ann_type is None:
+            ann_type = AnnouncementType.GENERAL
+        elif isinstance(ann_type, AnnouncementType):
+            ann_type = ann_type.value
+        
+        result.append(AnnouncementResponse(
+            id=ann.id,
+            title=ann.title,
+            message=ann.message,
+            announcement_type=ann_type,
+            flight_id=ann.flight_id,
+            created_at=ann.created_at,
+            is_active=ann.is_active
+        ))
+    
+    return result
 
 
 @app.post("/announcements", response_model=AnnouncementResponse, status_code=status.HTTP_201_CREATED)
@@ -1457,7 +1723,17 @@ def create_announcement(
                 detail="Flight not found"
             )
     
-    new_announcement = Announcement(**announcement_data.dict())
+    # Convert announcement_type string to enum if provided
+    announcement_dict = announcement_data.dict()
+    if "announcement_type" in announcement_dict and announcement_dict["announcement_type"]:
+        try:
+            announcement_dict["announcement_type"] = AnnouncementType(announcement_dict["announcement_type"])
+        except ValueError:
+            announcement_dict["announcement_type"] = AnnouncementType.GENERAL
+    else:
+        announcement_dict["announcement_type"] = AnnouncementType.GENERAL
+    
+    new_announcement = Announcement(**announcement_dict)
     db.add(new_announcement)
     db.commit()
     db.refresh(new_announcement)
@@ -1511,6 +1787,206 @@ def get_all_bookings(
         result.append(booking_response)
     
     return result
+
+
+@app.get("/staff/bookings/flight/{flight_id}")
+def get_bookings_by_flight(
+    flight_id: int,
+    current_user: User = Depends(get_current_staff_user),
+    db: Session = Depends(get_db)
+):
+    """Get all bookings for a specific flight - staff only"""
+    flight = db.query(Flight).filter(Flight.id == flight_id).first()
+    if not flight:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Flight not found"
+        )
+    
+    bookings = db.query(Booking).filter(Booking.flight_id == flight_id).all()
+    
+    # Convert to response format
+    from schemas import BookingResponse, SeatResponse
+    
+    result = []
+    for booking in bookings:
+        seat_price = booking.flight.base_price * booking.seat.price_multiplier
+        seat_response = SeatResponse(
+            id=booking.seat.id,
+            flight_id=booking.seat.flight_id,
+            row_number=booking.seat.row_number,
+            seat_letter=booking.seat.seat_letter,
+            seat_class=booking.seat.seat_class,
+            seat_category=booking.seat.seat_category,
+            price_multiplier=booking.seat.price_multiplier,
+            status=booking.seat.status,
+            price=seat_price
+        )
+        
+        booking_response = BookingResponse(
+            id=booking.id,
+            user_id=booking.user_id,
+            flight_id=booking.flight_id,
+            seat_id=booking.seat_id,
+            booking_reference=booking.booking_reference,
+            total_price=booking.total_price,
+            status=booking.status,
+            created_at=booking.created_at,
+            flight=booking.flight,
+            seat=seat_response
+        )
+        result.append(booking_response)
+    
+    return result
+
+
+@app.get("/staff/bookings/search")
+def search_bookings_by_pnr(
+    pnr: str,
+    current_user: User = Depends(get_current_staff_user),
+    db: Session = Depends(get_db)
+):
+    """Search bookings by PNR (booking reference) - staff only"""
+    booking = db.query(Booking).filter(Booking.booking_reference == pnr.upper()).first()
+    if not booking:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Booking not found"
+        )
+    
+    # Convert to response format
+    from schemas import BookingResponse, SeatResponse
+    
+    seat_price = booking.flight.base_price * booking.seat.price_multiplier
+    seat_response = SeatResponse(
+        id=booking.seat.id,
+        flight_id=booking.seat.flight_id,
+        row_number=booking.seat.row_number,
+        seat_letter=booking.seat.seat_letter,
+        seat_class=booking.seat.seat_class,
+        seat_category=booking.seat.seat_category,
+        price_multiplier=booking.seat.price_multiplier,
+        status=booking.seat.status,
+        price=seat_price
+    )
+    
+    booking_response = BookingResponse(
+        id=booking.id,
+        user_id=booking.user_id,
+        flight_id=booking.flight_id,
+        seat_id=booking.seat_id,
+        booking_reference=booking.booking_reference,
+        total_price=booking.total_price,
+        status=booking.status,
+        created_at=booking.created_at,
+        flight=booking.flight,
+        seat=seat_response
+    )
+    
+    return booking_response
+
+
+@app.delete("/staff/bookings/{booking_id}")
+def cancel_booking_staff(
+    booking_id: int,
+    current_user: User = Depends(get_current_staff_user),
+    db: Session = Depends(get_db)
+):
+    """Cancel a booking - staff only. Can cancel before departure."""
+    booking = db.query(Booking).filter(Booking.id == booking_id).first()
+    if not booking:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Booking not found"
+        )
+    
+    # Check if flight has departed
+    if booking.flight.status == FlightStatus.DEPARTED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot cancel booking for a flight that has already departed"
+        )
+    
+    # Release the seat
+    seat = booking.seat
+    seat.status = SeatStatus.AVAILABLE
+    seat.hold_expires_at = None
+    
+    # Update booking status to CANCELLED
+    booking.status = BookingStatus.CANCELLED
+    
+    db.commit()
+    
+    return {"message": "Booking cancelled successfully"}
+
+
+@app.patch("/staff/bookings/{booking_id}/reassign-seat")
+def reassign_seat(
+    booking_id: int,
+    new_seat_id: int,
+    current_user: User = Depends(get_current_staff_user),
+    db: Session = Depends(get_db)
+):
+    """Reassign a seat for a booking - staff only. Overrides availability rules."""
+    booking = db.query(Booking).filter(Booking.id == booking_id).first()
+    if not booking:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Booking not found"
+        )
+    
+    # Check if flight has departed
+    if booking.flight.status == FlightStatus.DEPARTED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot reassign seat for a flight that has already departed"
+        )
+    
+    # Get new seat
+    new_seat = db.query(Seat).filter(
+        and_(
+            Seat.id == new_seat_id,
+            Seat.flight_id == booking.flight_id
+        )
+    ).first()
+    
+    if not new_seat:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="New seat not found"
+        )
+    
+    # Check if new seat is already booked (unless it's the same seat)
+    if new_seat.id != booking.seat_id:
+        existing_booking = db.query(Booking).filter(
+            and_(
+                Booking.seat_id == new_seat_id,
+                Booking.status != BookingStatus.CANCELLED
+            )
+        ).first()
+        
+        if existing_booking:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="New seat is already booked"
+            )
+    
+    # Release old seat
+    old_seat = booking.seat
+    old_seat.status = SeatStatus.AVAILABLE
+    old_seat.hold_expires_at = None
+    
+    # Assign new seat
+    booking.seat_id = new_seat_id
+    new_seat.status = SeatStatus.BOOKED if booking.status == BookingStatus.CONFIRMED else SeatStatus.HELD
+    new_seat.hold_expires_at = None
+    
+    # Recalculate price
+    booking.total_price = booking.flight.base_price * new_seat.price_multiplier
+    
+    db.commit()
+    
+    return {"message": f"Seat reassigned from {old_seat.row_number}{old_seat.seat_letter} to {new_seat.row_number}{new_seat.seat_letter}"}
 
 
 # Root endpoint
