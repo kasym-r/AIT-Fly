@@ -609,13 +609,16 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: seats.map((seat) {
                               final isSelected = _selectedSeats.any((s) => s.id == seat.id);
+                              final isBusiness = seat.isBusiness;
                               Color seatColor;
                               if (isSelected) {
                                 seatColor = Colors.green;
                               } else if (seat.isBooked) {
                                 seatColor = Colors.red.shade300;
                               } else if (seat.isHeld) {
-                                seatColor = Colors.orange.shade300;
+                                seatColor = Colors.deepOrange.shade400;  // Changed to deep orange for better distinction
+                              } else if (isBusiness) {
+                                seatColor = Colors.amber.shade800;  // Darker amber for business - more distinct
                               } else if (seat.isExtraLegroom) {
                                 seatColor = Colors.purple.shade300;  // Extra legroom seats
                               } else {
@@ -684,8 +687,9 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen> {
                 runSpacing: 8,
                 children: [
                   _buildLegendItem(Colors.blue.shade300, 'Standard'),
+                  _buildLegendItem(Colors.amber.shade800, 'Business'),
                   _buildLegendItem(Colors.purple.shade300, 'Extra Legroom'),
-                  _buildLegendItem(Colors.orange.shade300, 'Held'),
+                  _buildLegendItem(Colors.deepOrange.shade400, 'Held'),
                   _buildLegendItem(Colors.red.shade300, 'Booked'),
                   _buildLegendItem(Colors.green, 'Selected'),
                 ],

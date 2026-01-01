@@ -5,10 +5,13 @@
 // Users can view booking details, check in, and view boarding passes.
 // """
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import '../api_service.dart';
 import '../models.dart';
+import '../theme/app_theme.dart';
 import 'profile_screen.dart';
 
 class MyTripsScreen extends StatefulWidget {
@@ -25,18 +28,41 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
   bool _isLoading = true;
   String? _errorMessage;
   late TabController _tabController;
+  Timer? _countdownTimer;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _loadData();
+    // Start countdown timer for pending bookings
+    _startCountdownTimer();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _countdownTimer?.cancel();
     super.dispose();
+  }
+
+  void _startCountdownTimer() {
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted && _pendingBookings.isNotEmpty) {
+        setState(() {
+          // Trigger rebuild to update countdown timers
+        });
+      }
+    });
+  }
+
+  Duration _getTimeRemaining(Booking booking) {
+    // Handle UTC time properly - ensure both times are in UTC for comparison
+    final createdAt = booking.createdAt.isUtc ? booking.createdAt : booking.createdAt.toUtc();
+    final expiryTime = createdAt.add(const Duration(minutes: 10));
+    final now = DateTime.now().toUtc();
+    final remaining = expiryTime.difference(now);
+    return remaining.isNegative ? Duration.zero : remaining;
   }
 
   Future<void> _loadData() async {
@@ -223,62 +249,250 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
       if (mounted) {
         showDialog(
           context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Boarding Pass'),
-            content: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (boardingPass.passengerName != null)
-                    Text('Passenger: ${boardingPass.passengerName}'),
-                  const SizedBox(height: 8),
-                  Text('Flight: ${boardingPass.flightNumber}'),
-                  Text('Seat: ${boardingPass.seat}'),
-                  if (boardingPass.boardingGate != null)
-                    Text('Gate: ${boardingPass.boardingGate}'),
-                  if (boardingPass.boardingTime != null)
-                    Text(
-                        'Boarding: ${DateFormat('MMM dd, HH:mm').format(boardingPass.boardingTime!)}'),
-                  Text(
-                      'Departure: ${DateFormat('MMM dd, HH:mm').format(boardingPass.departureTime)}'),
-                  Text('Route: ${boardingPass.origin} → ${boardingPass.destination}'),
-                  if (boardingPass.ticketNumber != null)
-                    Text('Ticket: ${boardingPass.ticketNumber}'),
-                  if (boardingPass.qrCode != null) ...[
-                    const SizedBox(height: 16),
-                    const Divider(),
-                    const Text(
-                      'QR Code:',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    SelectableText(
-                      boardingPass.qrCode!,
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 12,
+          builder: (context) => Dialog(
+            backgroundColor: Colors.transparent,
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 400),
+              decoration: BoxDecoration(
+                color: AITFlyTheme.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: AITFlyTheme.cardShadow,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: const BoxDecoration(
+                        gradient: AITFlyTheme.primaryGradient,
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(20),
+                          topRight: Radius.circular(20),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'AIT Fly',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            boardingPass.flightNumber,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Scan this code at the gate',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontStyle: FontStyle.italic,
-                        color: Colors.grey,
+                    
+                    // Content
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Passenger name
+                          if (boardingPass.passengerName != null)
+                            Text(
+                              boardingPass.passengerName!,
+                              style: AITFlyTheme.heading3,
+                            ),
+                          const SizedBox(height: 16),
+                          
+                          // Route
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'FROM',
+                                      style: AITFlyTheme.bodySmall,
+                                    ),
+                                    Text(
+                                      boardingPass.origin.split(' - ')[0],
+                                      style: AITFlyTheme.heading3,
+                                    ),
+                                    if (boardingPass.origin.split(' - ').length > 1)
+                                      Text(
+                                        boardingPass.origin.split(' - ')[1],
+                                        style: AITFlyTheme.bodySmall,
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.flight, color: AITFlyTheme.primaryPurple),
+                              Expanded(
+                                child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  const Text(
+                                    'TO',
+                                    style: AITFlyTheme.bodySmall,
+                                  ),
+                                  Text(
+                                    boardingPass.destination.split(' - ')[0],
+                                    style: AITFlyTheme.heading3,
+                                  ),
+                                  if (boardingPass.destination.split(' - ').length > 1)
+                                    Text(
+                                      boardingPass.destination.split(' - ')[1],
+                                      style: AITFlyTheme.bodySmall,
+                                    ),
+                                ],
+                              ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          
+                          // Flight details
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('DEPARTURE', style: AITFlyTheme.bodySmall),
+                                  Text(
+                                    DateFormat('MMM dd, HH:mm').format(boardingPass.departureTime),
+                                    style: AITFlyTheme.bodyLarge.copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                              if (boardingPass.boardingGate != null)
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    const Text('GATE', style: AITFlyTheme.bodySmall),
+                                    Text(
+                                      boardingPass.boardingGate!,
+                                      style: AITFlyTheme.heading3,
+                                    ),
+                                  ],
+                                ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  const Text('SEAT', style: AITFlyTheme.bodySmall),
+                                  Text(
+                                    boardingPass.seat,
+                                    style: AITFlyTheme.heading3,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 20),
+                          
+                          // QR Code
+                          if (boardingPass.qrCode != null) ...[
+                            Center(
+                              child: Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: AITFlyTheme.lightGray,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: QrImageView(
+                                  data: boardingPass.qrCode!,
+                                  version: QrVersions.auto,
+                                  size: 200,
+                                  backgroundColor: Colors.white,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            const Center(
+                              child: Text(
+                                'Scan at the gate',
+                                style: AITFlyTheme.bodySmall,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                          ],
+                          
+                          // Booking reference
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AITFlyTheme.lightPurple.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Booking Ref:', style: AITFlyTheme.bodyMedium),
+                                Text(
+                                  boardingPass.bookingReference,
+                                  style: AITFlyTheme.bodyLarge.copyWith(
+                                    fontFamily: 'monospace',
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (boardingPass.ticketNumber != null) ...[
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AITFlyTheme.lightPurple.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text('Ticket:', style: AITFlyTheme.bodyMedium),
+                                  Text(
+                                    boardingPass.ticketNumber!,
+                                    style: AITFlyTheme.bodyLarge.copyWith(
+                                      fontFamily: 'monospace',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    
+                    // Actions
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          top: BorderSide(color: AITFlyTheme.lightPurple.withOpacity(0.3)),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: const Text('Close'),
+                          ),
+                        ],
                       ),
                     ),
                   ],
-                ],
+                ),
               ),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Close'),
-              ),
-            ],
           ),
         );
       }
@@ -400,46 +614,90 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
         itemCount: _pendingBookings.length,
         itemBuilder: (context, index) {
           final booking = _pendingBookings[index];
-          return Card(
+          final timeRemaining = _getTimeRemaining(booking);
+          final isExpired = timeRemaining == Duration.zero;
+          
+          return Container(
             margin: const EdgeInsets.only(bottom: 12),
-            color: Colors.orange.shade50,
+            decoration: BoxDecoration(
+              color: isExpired ? AITFlyTheme.error.withOpacity(0.1) : AITFlyTheme.warning.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isExpired ? AITFlyTheme.error : AITFlyTheme.warning,
+                width: 1.5,
+              ),
+              boxShadow: AITFlyTheme.cardShadow,
+            ),
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header with warning
+                  // Header with warning and timer
                   Row(
                     children: [
-                      Icon(Icons.pending_actions, color: Colors.orange.shade700),
+                      Icon(
+                        isExpired ? Icons.error_outline : Icons.pending_actions,
+                        color: isExpired ? AITFlyTheme.error : AITFlyTheme.warning,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Payment Pending',
+                          isExpired ? 'Time Expired' : 'Payment Pending',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
-                            color: Colors.orange.shade800,
+                            color: isExpired ? AITFlyTheme.error : AITFlyTheme.warning,
                           ),
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: Colors.orange,
+                          gradient: isExpired 
+                              ? LinearGradient(colors: [AITFlyTheme.error, AITFlyTheme.error.withOpacity(0.8)])
+                              : LinearGradient(colors: [AITFlyTheme.warning, AITFlyTheme.warning.withOpacity(0.8)]),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Text(
-                          'SEAT HELD',
-                          style: TextStyle(
+                        child: Text(
+                          isExpired 
+                              ? 'EXPIRED'
+                              : '${timeRemaining.inMinutes}:${(timeRemaining.inSeconds % 60).toString().padLeft(2, '0')}',
+                          style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 10,
+                            fontSize: 12,
                             fontWeight: FontWeight.bold,
+                            fontFeatures: [FontFeature.tabularFigures()],
                           ),
                         ),
                       ),
                     ],
                   ),
+                  if (isExpired) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AITFlyTheme.error.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: AITFlyTheme.error, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Your booking has expired. The seat has been released.',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AITFlyTheme.error,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   
                   // Booking info

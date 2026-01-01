@@ -244,6 +244,7 @@ class Seat {
 
   bool get isAvailable => status == 'AVAILABLE';
   
+  bool get isBusiness => seatClass == 'BUSINESS';
   bool get isExtraLegroom => seatCategory == 'EXTRA_LEGROOM';
   bool get isHeld => status == 'HELD';
   bool get isBooked => status == 'BOOKED';
@@ -277,6 +278,24 @@ class Booking {
   });
 
   factory Booking.fromJson(Map<String, dynamic> json) {
+    // Parse date and ensure it's in UTC (backend sends UTC)
+    final createdAtStr = json['created_at'] as String;
+    DateTime createdAt = DateTime.parse(createdAtStr);
+    // If the string doesn't have timezone info, assume it's UTC
+    if (!createdAtStr.endsWith('Z') && !createdAtStr.contains('+') && !createdAtStr.contains('-', createdAtStr.length - 6)) {
+      createdAt = DateTime.utc(
+        createdAt.year,
+        createdAt.month,
+        createdAt.day,
+        createdAt.hour,
+        createdAt.minute,
+        createdAt.second,
+        createdAt.millisecond,
+      );
+    } else {
+      createdAt = createdAt.toUtc();
+    }
+    
     return Booking(
       id: json['id'],
       userId: json['user_id'],
@@ -285,7 +304,7 @@ class Booking {
       bookingReference: json['booking_reference'],
       totalPrice: (json['total_price'] as num).toDouble(),
       status: json['status'] ?? 'CREATED',
-      createdAt: DateTime.parse(json['created_at']),
+      createdAt: createdAt,
       flight: Flight.fromJson(json['flight']),
       seat: Seat.fromJson(json['seat']),
     );

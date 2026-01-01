@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import '../api_service.dart';
 import '../models.dart';
 import '../theme/app_theme.dart';
+import '../widgets/ait_fly_logo.dart';
 import 'register_screen.dart';
 import 'flight_search_screen.dart';
 
@@ -98,7 +99,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         children: [
                           const SizedBox(height: 40),
                   
-                  // Header with airplane illustration
+                  // Header with AIT Fly logo
                   SizedBox(
                     height: 200,
                     child: Stack(
@@ -110,20 +111,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             painter: CloudPainter(),
                           ),
                         ),
-                        // Airplane icon
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: AITFlyTheme.white,
-                            shape: BoxShape.circle,
-                            boxShadow: AITFlyTheme.cardShadow,
-                          ),
-                          child: const Icon(
-                            Icons.flight_takeoff,
-                            size: 48,
-                            color: AITFlyTheme.primaryPurple,
-                          ),
-                        ),
+                        // AIT Fly Logo
+                        const AITFlyLogo(size: 80),
                       ],
                     ),
                   ),

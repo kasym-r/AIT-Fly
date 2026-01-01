@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import '../api_service.dart';
 import '../models.dart';
 import '../theme/app_theme.dart';
+import '../widgets/ait_fly_logo.dart';
 import 'flight_search_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -101,7 +102,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   
                   const SizedBox(height: 20),
                   
-                  // Header with illustration
+                  // Header with AIT Fly logo
                   SizedBox(
                     height: 200,
                     child: Stack(
@@ -112,19 +113,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             painter: CloudPainter(),
                           ),
                         ),
-                        Container(
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: AITFlyTheme.white,
-                            shape: BoxShape.circle,
-                            boxShadow: AITFlyTheme.cardShadow,
-                          ),
-                          child: const Icon(
-                            Icons.person_add_rounded,
-                            size: 48,
-                            color: AITFlyTheme.primaryPurple,
-                          ),
-                        ),
+                        const AITFlyLogo(size: 80),
                       ],
                     ),
                   ),

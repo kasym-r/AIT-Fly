@@ -9,6 +9,7 @@
 import 'package:flutter/material.dart';
 import '../api_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/ait_fly_logo.dart';
 import 'login_screen.dart';
 import 'flight_search_screen.dart';
 
@@ -76,41 +77,10 @@ class _SplashScreenState extends State<SplashScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Animated airplane icon
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: AITFlyTheme.white,
-                  shape: BoxShape.circle,
-                  boxShadow: AITFlyTheme.cardShadow,
-                ),
-                child: const Icon(
-                  Icons.flight_takeoff,
-                  size: 64,
-                  color: AITFlyTheme.primaryPurple,
-                ),
-              ),
-              const SizedBox(height: 32),
-              
-              // AIT Fly Branding
-              ShaderMask(
-                shaderCallback: (bounds) => AITFlyTheme.primaryGradient.createShader(bounds),
-                child: const Text(
-                  'AIT Fly',
-                  style: TextStyle(
-                    fontSize: 42,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    letterSpacing: 2,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Your Journey Starts Here',
-                style: AITFlyTheme.bodyMedium.copyWith(
-                  color: AITFlyTheme.mediumGray,
-                ),
+              // AIT Fly Logo
+              const AITFlyLogo(
+                size: 100,
+                showTagline: true,
               ),
               const SizedBox(height: 48),
               
