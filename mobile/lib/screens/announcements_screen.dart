@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../api_service.dart';
 import '../models.dart';
+import '../theme/app_theme.dart';
 import '../utils/notification_helper.dart';
 import 'profile_screen.dart';
 
@@ -56,7 +57,18 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Announcements'),
+        title: ShaderMask(
+          shaderCallback: (bounds) => AITFlyTheme.primaryGradient.createShader(bounds),
+          child: const Text(
+            'AIT Fly',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              letterSpacing: 1,
+            ),
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.person),
@@ -74,118 +86,179 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.error_outline,
-                          size: 64, color: Colors.red.shade300),
-                      const SizedBox(height: 16),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 32),
-                        child: Text(
-                          _errorMessage!,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.red.shade700),
-                        ),
+      body: Container(
+        decoration: AITFlyTheme.gradientBackground,
+        child: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(AITFlyTheme.primaryPurple),
+                ),
+              )
+            : _errorMessage != null
+                ? Center(
+                    child: Container(
+                      margin: const EdgeInsets.all(24),
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: AITFlyTheme.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: AITFlyTheme.cardShadow,
                       ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _loadAnnouncements,
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
-                )
-              : _announcements.isEmpty
-                  ? Center(
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.notifications_off,
-                              size: 64, color: Colors.grey.shade400),
+                          const Icon(Icons.error_outline,
+                              size: 64, color: AITFlyTheme.error),
                           const SizedBox(height: 16),
                           Text(
-                            'No announcements',
-                            style: TextStyle(
-                              fontSize: 18,
-                              color: Colors.grey.shade600,
+                            _errorMessage!,
+                            textAlign: TextAlign.center,
+                            style: AITFlyTheme.bodyLarge.copyWith(color: AITFlyTheme.error),
+                          ),
+                          const SizedBox(height: 24),
+                          Container(
+                            decoration: AITFlyTheme.purpleGradientButton,
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: _loadAnnouncements,
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                                  child: const Text(
+                                    'Retry',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _loadAnnouncements,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _announcements.length,
-                        itemBuilder: (context, index) {
-                          final announcement = _announcements[index];
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.all(16),
-                              leading: Icon(
-                                _getIconForType(announcement.announcementType),
-                                size: 40,
-                                color: _getColorForType(announcement.announcementType),
+                    ),
+                  )
+                : _announcements.isEmpty
+                    ? Center(
+                        child: Container(
+                          margin: const EdgeInsets.all(24),
+                          padding: const EdgeInsets.all(32),
+                          decoration: BoxDecoration(
+                            color: AITFlyTheme.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: AITFlyTheme.cardShadow,
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.notifications_off,
+                                  size: 64, color: AITFlyTheme.mediumGray),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No announcements',
+                                style: AITFlyTheme.heading3.copyWith(
+                                  color: AITFlyTheme.darkGray,
+                                ),
                               ),
-                              title: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      announcement.title,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 18,
+                              const SizedBox(height: 8),
+                              Text(
+                                'Check back later for updates',
+                                style: AITFlyTheme.bodyMedium.copyWith(
+                                  color: AITFlyTheme.mediumGray,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: _loadAnnouncements,
+                        color: AITFlyTheme.primaryPurple,
+                        child: ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: _announcements.length,
+                          itemBuilder: (context, index) {
+                            final announcement = _announcements[index];
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                color: AITFlyTheme.white,
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: AITFlyTheme.cardShadow,
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: _getColorForType(announcement.announcementType).withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(12),
                                       ),
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: _getColorForType(announcement.announcementType).withOpacity(0.2),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      announcement.typeLabel,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
+                                      child: Icon(
+                                        _getIconForType(announcement.announcementType),
+                                        size: 32,
                                         color: _getColorForType(announcement.announcementType),
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    announcement.message,
-                                    style: const TextStyle(fontSize: 14),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    DateFormat('MMM dd, yyyy HH:mm')
-                                        .format(announcement.createdAt),
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey.shade600,
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  announcement.title,
+                                                  style: AITFlyTheme.heading3,
+                                                ),
+                                              ),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                decoration: BoxDecoration(
+                                                  color: _getColorForType(announcement.announcementType).withOpacity(0.2),
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
+                                                child: Text(
+                                                  announcement.typeLabel,
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: _getColorForType(announcement.announcementType),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            announcement.message,
+                                            style: AITFlyTheme.bodyMedium,
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            DateFormat('MMM dd, yyyy HH:mm')
+                                                .format(announcement.createdAt),
+                                            style: AITFlyTheme.bodySmall.copyWith(
+                                              color: AITFlyTheme.mediumGray,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          );
-                        },
+                            );
+                          },
+                        ),
                       ),
-                    ),
+      ),
     );
   }
 

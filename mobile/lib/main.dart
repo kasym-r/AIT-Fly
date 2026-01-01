@@ -1,12 +1,13 @@
 // """
-// Main Entry Point
-// ================
+// Main Entry Point - AIT Fly
+// ===========================
 // This is the starting point of the Flutter app.
-// It sets up the app and shows the login screen first.
+// It sets up the app with AIT Fly branding and modern theme.
 // """
 
 import 'package:flutter/material.dart';
 import 'screens/splash_screen.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   runApp(const MyApp());
@@ -18,27 +19,9 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Airline Booking',
+      title: 'AIT Fly',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        // Primary color scheme
-        primarySwatch: Colors.blue,
-        // Use Material 3 design
-        useMaterial3: true,
-        // Card theme
-        cardTheme: CardThemeData(
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        // Input field theme
-        inputDecorationTheme: InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-      ),
+      theme: AITFlyTheme.theme,
       // Start with splash screen to check authentication
       home: const SplashScreen(),
     );

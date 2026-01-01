@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../api_service.dart';
 import '../models.dart';
+import '../theme/app_theme.dart';
 import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -582,7 +583,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Profile'),
+        title: ShaderMask(
+          shaderCallback: (bounds) => AITFlyTheme.primaryGradient.createShader(bounds),
+          child: const Text(
+            'AIT Fly',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              letterSpacing: 1,
+            ),
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -591,298 +603,351 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Header
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          children: [
-                            const Icon(
-                              Icons.person,
-                              size: 64,
-                              color: Colors.blue,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _profile != null ? 'Edit Profile' : 'Create Profile',
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            if (_user != null)
-                              Text(
-                                _user!.email,
-                                style: TextStyle(
-                                  color: Colors.blue.shade700,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
+      body: Container(
+        decoration: AITFlyTheme.gradientBackground,
+        child: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(AITFlyTheme.primaryPurple),
+                ),
+              )
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      // Header
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: AITFlyTheme.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: AITFlyTheme.cardShadow,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(20),
+                                decoration: const BoxDecoration(
+                                  gradient: AITFlyTheme.primaryGradient,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.person,
+                                  size: 48,
+                                  color: Colors.white,
                                 ),
                               ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _profile != null
-                                  ? 'Update your passenger information'
-                                  : 'Complete your profile to book flights',
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontSize: 14,
+                              const SizedBox(height: 16),
+                              Text(
+                                _user?.email ?? 'User',
+                                style: AITFlyTheme.heading3,
                               ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Account Settings Section
-                    Card(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.all(16),
-                            child: Row(
-                              children: [
-                                Icon(Icons.settings, color: Colors.blue),
-                                SizedBox(width: 12),
+                              if (_profile != null) ...[
+                                const SizedBox(height: 4),
                                 Text(
-                                  'Account Settings',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
+                                  _profile!.fullName,
+                                  style: AITFlyTheme.bodyLarge.copyWith(
+                                    color: AITFlyTheme.mediumGray,
                                   ),
                                 ),
                               ],
-                            ),
+                            ],
                           ),
-                          const Divider(height: 1),
-                          ListTile(
-                            leading: const Icon(Icons.payment),
-                            title: const Text('Payment History'),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: _showPaymentHistory,
-                          ),
-                          ListTile(
-                            leading: const Icon(Icons.lock_outline),
-                            title: const Text('Change Password'),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: _showPasswordChangeDialog,
-                          ),
-                          ListTile(
-                            leading: const Icon(Icons.logout, color: Colors.red),
-                            title: const Text('Logout', style: TextStyle(color: Colors.red)),
-                            trailing: const Icon(Icons.chevron_right),
-                            onTap: _logout,
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    // First Name
-                    TextFormField(
-                      controller: _firstNameController,
-                      decoration: const InputDecoration(
-                        labelText: 'First Name *',
-                        prefixIcon: Icon(Icons.person_outline),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'First name is required';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Last Name
-                    TextFormField(
-                      controller: _lastNameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Last Name *',
-                        prefixIcon: Icon(Icons.person_outline),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Last name is required';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Phone
-                    TextFormField(
-                      controller: _phoneController,
-                      decoration: const InputDecoration(
-                        labelText: 'Phone Number *',
-                        prefixIcon: Icon(Icons.phone),
-                        border: OutlineInputBorder(),
-                      ),
-                      keyboardType: TextInputType.phone,
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Phone number is required';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Date of Birth
-                    FormField<DateTime>(
-                      initialValue: _dateOfBirth,
-                      validator: (value) {
-                        if (_dateOfBirth == null) {
-                          return 'Date of birth is required';
-                        }
-                        return null;
-                      },
-                      builder: (formState) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            InkWell(
-                              onTap: _selectDateOfBirth,
-                              child: InputDecorator(
-                                decoration: InputDecoration(
-                                  labelText: 'Date of Birth *',
-                                  prefixIcon: const Icon(Icons.calendar_today),
-                                  border: const OutlineInputBorder(),
-                                  errorText: formState.errorText,
+                      
+                      // Profile Form Card
+                      Container(
+                        decoration: BoxDecoration(
+                          color: AITFlyTheme.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: AITFlyTheme.cardShadow,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Row(
+                                children: [
+                                  Icon(Icons.person_outline, color: AITFlyTheme.primaryPurple),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Personal Information',
+                                    style: AITFlyTheme.heading3,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 20),
+                              
+                              // First Name
+                              TextFormField(
+                                controller: _firstNameController,
+                                decoration: const InputDecoration(
+                                  labelText: 'First Name *',
+                                  prefixIcon: Icon(Icons.person_outline, color: AITFlyTheme.primaryPurple),
                                 ),
-                                child: Text(
-                                  _dateOfBirth != null
-                                      ? DateFormat('MMM dd, yyyy').format(_dateOfBirth!)
-                                      : 'Select date',
-                                  style: TextStyle(
-                                    color: _dateOfBirth != null
-                                        ? Colors.black
-                                        : Colors.grey.shade600,
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'First name is required';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Last Name
+                              TextFormField(
+                                controller: _lastNameController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Last Name *',
+                                  prefixIcon: Icon(Icons.person_outline, color: AITFlyTheme.primaryPurple),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Last name is required';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Phone
+                              TextFormField(
+                                controller: _phoneController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Phone Number *',
+                                  prefixIcon: Icon(Icons.phone, color: AITFlyTheme.primaryPurple),
+                                ),
+                                keyboardType: TextInputType.phone,
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Phone number is required';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Date of Birth
+                              FormField<DateTime>(
+                                initialValue: _dateOfBirth,
+                                validator: (value) {
+                                  if (_dateOfBirth == null) {
+                                    return 'Date of birth is required';
+                                  }
+                                  return null;
+                                },
+                                builder: (formState) {
+                                  return Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      InkWell(
+                                        onTap: _selectDateOfBirth,
+                                        child: InputDecorator(
+                                          decoration: InputDecoration(
+                                            labelText: 'Date of Birth *',
+                                            prefixIcon: const Icon(Icons.calendar_today, color: AITFlyTheme.primaryPurple),
+                                            errorText: formState.errorText,
+                                          ),
+                                          child: Text(
+                                            _dateOfBirth != null
+                                                ? DateFormat('MMM dd, yyyy').format(_dateOfBirth!)
+                                                : 'Select date',
+                                            style: TextStyle(
+                                              color: _dateOfBirth != null
+                                                  ? AITFlyTheme.darkGray
+                                                  : AITFlyTheme.mediumGray,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Passport Number
+                              TextFormField(
+                                controller: _passportController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Passport Number *',
+                                  prefixIcon: Icon(Icons.credit_card, color: AITFlyTheme.primaryPurple),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Passport number is required';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 16),
+
+                              // Nationality
+                              TextFormField(
+                                controller: _nationalityController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Nationality *',
+                                  prefixIcon: Icon(Icons.flag, color: AITFlyTheme.primaryPurple),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Nationality is required';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 24),
+
+                              // Error message
+                              if (_errorMessage != null)
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  margin: const EdgeInsets.only(bottom: 16),
+                                  decoration: BoxDecoration(
+                                    color: AITFlyTheme.error.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: AITFlyTheme.error.withOpacity(0.3)),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.error_outline, color: AITFlyTheme.error, size: 20),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          _errorMessage!,
+                                          style: AITFlyTheme.bodySmall.copyWith(color: AITFlyTheme.error),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              if (_errorMessage != null) const SizedBox(height: 16),
+
+                              // Save button
+                              Container(
+                                decoration: AITFlyTheme.purpleGradientButton,
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: _isSaving ? null : _saveProfile,
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.symmetric(vertical: 16),
+                                      alignment: Alignment.center,
+                                      child: _isSaving
+                                          ? const SizedBox(
+                                              height: 20,
+                                              width: 20,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                              ),
+                                            )
+                                          : const Text(
+                                              'Save Profile',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.white,
+                                                letterSpacing: 0.5,
+                                              ),
+                                            ),
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 16),
+                              const SizedBox(height: 16),
 
-                    // Passport Number
-                    TextFormField(
-                      controller: _passportController,
-                      decoration: const InputDecoration(
-                        labelText: 'Passport Number *',
-                        prefixIcon: Icon(Icons.credit_card),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Passport number is required';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Nationality
-                    TextFormField(
-                      controller: _nationalityController,
-                      decoration: const InputDecoration(
-                        labelText: 'Nationality *',
-                        prefixIcon: Icon(Icons.flag),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Nationality is required';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 24),
-
-                    // Error message
-                    if (_errorMessage != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Text(
-                          _errorMessage!,
-                          style: const TextStyle(
-                            color: Colors.red,
-                            fontSize: 14,
+                              // Info card
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: AITFlyTheme.primaryPurple.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: AITFlyTheme.primaryPurple.withOpacity(0.3)),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.info_outline, color: AITFlyTheme.primaryPurple, size: 20),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        'Required fields (*) must be filled to book flights.',
+                                        style: AITFlyTheme.bodySmall.copyWith(
+                                          color: AITFlyTheme.darkPurple,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-
-                    // Save button
-                    SizedBox(
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: _isSaving ? null : _saveProfile,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
+                      
+                      // Account Settings Section
+                      Container(
+                        margin: const EdgeInsets.only(top: 16),
+                        decoration: BoxDecoration(
+                          color: AITFlyTheme.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: AITFlyTheme.cardShadow,
                         ),
-                        child: _isSaving
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                ),
-                              )
-                            : const Text(
-                                'Save Profile',
-                                style: TextStyle(fontSize: 16),
-                              ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Info card
-                    Card(
-                      color: Colors.blue.shade50,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            const Icon(Icons.info_outline, color: Colors.blue),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Required fields (*) must be filled to book flights.',
-                                style: TextStyle(
-                                  color: Colors.blue.shade900,
-                                  fontSize: 12,
-                                ),
+                            const Padding(
+                              padding: EdgeInsets.all(20),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.settings_outlined, color: AITFlyTheme.primaryPurple),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Account Settings',
+                                    style: AITFlyTheme.heading3,
+                                  ),
+                                ],
                               ),
+                            ),
+                            const Divider(height: 1),
+                            ListTile(
+                              leading: const Icon(Icons.payment, color: AITFlyTheme.primaryPurple),
+                              title: const Text('Payment History', style: AITFlyTheme.bodyLarge),
+                              trailing: const Icon(Icons.chevron_right, color: AITFlyTheme.mediumGray),
+                              onTap: _showPaymentHistory,
+                            ),
+                            const Divider(height: 1),
+                            ListTile(
+                              leading: const Icon(Icons.lock_outline, color: AITFlyTheme.primaryPurple),
+                              title: const Text('Change Password', style: AITFlyTheme.bodyLarge),
+                              trailing: const Icon(Icons.chevron_right, color: AITFlyTheme.mediumGray),
+                              onTap: _showPasswordChangeDialog,
+                            ),
+                            const Divider(height: 1),
+                            ListTile(
+                              leading: const Icon(Icons.logout, color: AITFlyTheme.error),
+                              title: Text('Logout', style: AITFlyTheme.bodyLarge.copyWith(color: AITFlyTheme.error)),
+                              trailing: const Icon(Icons.chevron_right, color: AITFlyTheme.mediumGray),
+                              onTap: _logout,
                             ),
                           ],
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
-    );
+          );
   }
 }
 

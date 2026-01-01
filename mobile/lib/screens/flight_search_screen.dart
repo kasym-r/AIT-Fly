@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../api_service.dart';
 import '../models.dart';
+import '../theme/app_theme.dart';
 import '../utils/notification_helper.dart';
 import 'flight_details_screen.dart';
 import 'my_trips_screen.dart';
@@ -184,7 +185,18 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> with WidgetsBin
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Search Flights'),
+        title: ShaderMask(
+          shaderCallback: (bounds) => AITFlyTheme.primaryGradient.createShader(bounds),
+          child: const Text(
+            'AIT Fly',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              letterSpacing: 1,
+            ),
+          ),
+        ),
         actions: [
           // Profile button
           IconButton(
@@ -226,13 +238,20 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> with WidgetsBin
                   top: 8,
                   child: Container(
                     padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
+                    decoration: BoxDecoration(
+                      gradient: AITFlyTheme.primaryGradient,
                       shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AITFlyTheme.primaryPurple.withOpacity(0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
                     constraints: const BoxConstraints(
-                      minWidth: 16,
-                      minHeight: 16,
+                      minWidth: 18,
+                      minHeight: 18,
                     ),
                     child: Text(
                       _unreadCount > 99 ? '99+' : '$_unreadCount',
@@ -253,8 +272,17 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> with WidgetsBin
         children: [
           // Search filters
           Container(
-            padding: const EdgeInsets.all(16),
-            color: Colors.blue.shade50,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: AITFlyTheme.lightGradient,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
             child: Column(
               children: [
                 // Origin dropdown
@@ -262,11 +290,11 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> with WidgetsBin
                   initialValue: _selectedOrigin,
                   decoration: const InputDecoration(
                     labelText: 'From',
-                    prefixIcon: Icon(Icons.flight_takeoff),
-                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.flight_takeoff, color: AITFlyTheme.primaryPurple),
                     filled: true,
                     fillColor: Colors.white,
                   ),
+                  style: AITFlyTheme.bodyMedium,
                   items: _airports.map((airport) {
                     return DropdownMenuItem(
                       value: airport,
@@ -287,11 +315,11 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> with WidgetsBin
                   initialValue: _selectedDestination,
                   decoration: const InputDecoration(
                     labelText: 'To',
-                    prefixIcon: Icon(Icons.flight_land),
-                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.flight_land, color: AITFlyTheme.primaryPurple),
                     filled: true,
                     fillColor: Colors.white,
                   ),
+                  style: AITFlyTheme.bodyMedium,
                   items: _airports.map((airport) {
                     return DropdownMenuItem(
                       value: airport,
@@ -409,59 +437,70 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> with WidgetsBin
                               final flight = _flights[index];
                               final hasAvailableSeats = flight.availableSeats != null && flight.availableSeats! > 0;
                               
-                              return Card(
-                                margin: const EdgeInsets.only(bottom: 12),
-                                child: InkWell(
-                                  onTap: hasAvailableSeats ? () {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => FlightDetailsScreen(
-                                          flightId: flight.id,
+                              return Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: AITFlyTheme.white,
+                                  borderRadius: BorderRadius.circular(16),
+                                  boxShadow: AITFlyTheme.cardShadow,
+                                ),
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    onTap: hasAvailableSeats ? () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) => FlightDetailsScreen(
+                                            flightId: flight.id,
+                                          ),
                                         ),
-                                      ),
-                                    );
-                                  } : null,
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        // Header: Flight number and status
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                const Icon(Icons.flight, color: Colors.blue, size: 24),
-                                                const SizedBox(width: 8),
-                                                Text(
-                                                  flight.flightNumber,
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                    fontSize: 18,
+                                      );
+                                    } : null,
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(20),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          // Header: Flight number and status
+                                          Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Container(
+                                                    padding: const EdgeInsets.all(8),
+                                                    decoration: BoxDecoration(
+                                                      gradient: AITFlyTheme.primaryGradient,
+                                                      borderRadius: BorderRadius.circular(10),
+                                                    ),
+                                                    child: const Icon(Icons.flight, color: Colors.white, size: 20),
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  Text(
+                                                    flight.flightNumber,
+                                                    style: AITFlyTheme.heading3,
+                                                  ),
+                                                ],
+                                              ),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                                decoration: BoxDecoration(
+                                                  color: _getStatusColor(flight.status).withOpacity(0.1),
+                                                  borderRadius: BorderRadius.circular(12),
+                                                  border: Border.all(color: _getStatusColor(flight.status), width: 1.5),
+                                                ),
+                                                child: Text(
+                                                  flight.status,
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: _getStatusColor(flight.status),
                                                   ),
                                                 ),
-                                              ],
-                                            ),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: _getStatusColor(flight.status).withOpacity(0.1),
-                                                borderRadius: BorderRadius.circular(12),
-                                                border: Border.all(color: _getStatusColor(flight.status)),
                                               ),
-                                              child: Text(
-                                                flight.status,
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w500,
-                                                  color: _getStatusColor(flight.status),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                            ],
+                                          ),
                                         const SizedBox(height: 12),
                                         
                                         // Route
@@ -603,9 +642,10 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> with WidgetsBin
                                     ),
                                   ),
                                 ),
-                              );
-                            },
-                          ),
+                              )
+                            );
+                          },
+                        ),
           ),
         ],
       ),
