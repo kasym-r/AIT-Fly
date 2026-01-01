@@ -625,6 +625,7 @@ async function loadAirplanes() {
                     <p><strong>Configuration:</strong> ${airplane.rows} rows × ${airplane.seats_per_row} seats</p>
                 </div>
                 <div class="data-card-actions">
+                    <button class="btn btn-secondary" onclick="viewAirplaneSeatMap(${airplane.id}, '${airplane.model}', ${airplane.rows}, ${airplane.seats_per_row})">View Seat Map</button>
                     <button class="btn btn-danger" onclick="deleteAirplane(${airplane.id}, '${airplane.model}')">Delete</button>
                 </div>
             </div>
@@ -654,13 +655,21 @@ function showCreateAirplaneModal() {
                 <input type="number" name="seats_per_row" required placeholder="6">
             </div>
             <div class="form-group">
+                <button type="button" class="btn btn-secondary" onclick="previewSeatMap()" style="margin-right: 10px; margin-bottom: 10px;">Preview Seat Map</button>
                 <button type="submit" class="btn btn-primary">Create Airplane</button>
             </div>
         </form>
+        <div id="seatMapPreview" style="display: none; margin-top: 20px; padding: 15px; background: #f9f9f9; border-radius: 5px; max-height: 400px; overflow-y: auto;">
+            <h4>Seat Map Preview</h4>
+            <div id="previewContent"></div>
+        </div>
     `;
     showModal('Create New Airplane', content);
     
-    // Preview seat map function
+    // Store seat configuration
+    window.seatConfig = {};
+    
+    // Preview seat map function with interactive seat configuration
     window.previewSeatMap = function() {
         const formData = new FormData(document.getElementById('createAirplaneForm'));
         const rows = parseInt(formData.get('rows')) || 0;
@@ -675,25 +684,228 @@ function showCreateAirplaneModal() {
         const previewContent = document.getElementById('previewContent');
         previewDiv.style.display = 'block';
         
-        // Generate seat map preview
+        // Initialize seat config if not exists
+        if (!window.seatConfig || Object.keys(window.seatConfig).length === 0) {
+            window.seatConfig = {};
+            for (let row = 1; row <= rows; row++) {
+                for (let seat = 0; seat < seatsPerRow; seat++) {
+                    const seatLetter = String.fromCharCode(65 + seat);
+                    const seatKey = `${row}${seatLetter}`;
+                    window.seatConfig[seatKey] = {
+                        seat_class: row <= 3 ? 'BUSINESS' : 'ECONOMY',
+                        seat_category: 'STANDARD',
+                        price_multiplier: row <= 3 ? 2.0 : 1.0
+                    };
+                }
+            }
+        }
+        
+        // Generate seat map preview with clickable seats
         let preview = '<div style="text-align: center; margin-bottom: 10px;"><strong>Front of Aircraft</strong></div>';
         preview += '<div style="display: flex; justify-content: center; gap: 2px; margin-bottom: 5px;">';
+        preview += '<span style="width: 30px;"></span>';
         for (let i = 0; i < seatsPerRow; i++) {
-            preview += `<span style="width: 30px; text-align: center;">${String.fromCharCode(65 + i)}</span>`;
+            preview += `<span style="width: 30px; text-align: center; font-weight: bold;">${String.fromCharCode(65 + i)}</span>`;
         }
         preview += '</div>';
         
         for (let row = 1; row <= rows; row++) {
             preview += `<div style="display: flex; justify-content: center; gap: 2px; margin-bottom: 2px;">`;
-            preview += `<span style="width: 30px; text-align: right; margin-right: 5px;">${row}</span>`;
+            preview += `<span style="width: 30px; text-align: right; margin-right: 5px; font-weight: bold;">${row}</span>`;
             for (let seat = 0; seat < seatsPerRow; seat++) {
                 const seatLetter = String.fromCharCode(65 + seat);
-                preview += `<span style="width: 30px; height: 30px; border: 1px solid #ccc; display: inline-block; text-align: center; line-height: 30px; background: #e8f5e9;">${seatLetter}</span>`;
+                const seatKey = `${row}${seatLetter}`;
+                const config = window.seatConfig[seatKey] || { seat_class: 'ECONOMY', seat_category: 'STANDARD', price_multiplier: 1.0 };
+                
+                const isBusiness = config.seat_class === 'BUSINESS';
+                const isExtraLegroom = config.seat_category === 'EXTRA_LEGROOM';
+                
+                let bgColor, borderColor;
+                if (isBusiness) {
+                    bgColor = '#ffa726';
+                    borderColor = '#f57c00';
+                } else if (isExtraLegroom) {
+                    bgColor = '#ba68c8';
+                    borderColor = '#9c27b0';
+                } else {
+                    bgColor = '#e8f5e9';
+                    borderColor = '#ccc';
+                }
+                
+                preview += `<span onclick="configureSeat(${row}, '${seatLetter}', ${rows}, ${seatsPerRow})" style="width: 30px; height: 30px; border: 1px solid ${borderColor}; display: inline-block; text-align: center; line-height: 30px; background: ${bgColor}; font-weight: ${isBusiness ? 'bold' : 'normal'}; cursor: pointer;" title="Click to configure: ${config.seat_class} - ${config.seat_category}">${seatLetter}</span>`;
             }
             preview += '</div>';
         }
+        preview += '<div style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 5px;">';
+        preview += '<strong>Legend:</strong><br>';
+        preview += '<span style="display: inline-block; width: 20px; height: 20px; background: #ffa726; border: 1px solid #f57c00; margin-right: 5px;"></span> Business Class<br>';
+        preview += '<span style="display: inline-block; width: 20px; height: 20px; background: #e8f5e9; border: 1px solid #ccc; margin-right: 5px;"></span> Economy Standard<br>';
+        preview += '<span style="display: inline-block; width: 20px; height: 20px; background: #ba68c8; border: 1px solid #9c27b0; margin-right: 5px;"></span> Extra Legroom<br>';
+        preview += '<p style="margin-top: 10px; font-size: 12px; color: #666;">Click on any seat to configure its class and category</p>';
+        preview += '</div>';
         
         previewContent.innerHTML = preview;
+    };
+    
+    // Configure individual seat
+    window.configureSeat = function(row, seatLetter, totalRows, seatsPerRow) {
+        const seatKey = `${row}${seatLetter}`;
+        const config = window.seatConfig[seatKey] || { seat_class: 'ECONOMY', seat_category: 'STANDARD', price_multiplier: 1.0 };
+        
+        // Save the current airplane creation modal content and form values
+        const currentModalTitle = document.getElementById('modalTitle').textContent;
+        const currentModalBody = document.getElementById('modalBody').innerHTML;
+        const form = document.getElementById('createAirplaneForm');
+        const formValues = form ? {
+            model: form.querySelector('[name="model"]')?.value || '',
+            total_seats: form.querySelector('[name="total_seats"]')?.value || '',
+            rows: form.querySelector('[name="rows"]')?.value || '',
+            seats_per_row: form.querySelector('[name="seats_per_row"]')?.value || ''
+        } : {};
+        window.savedAirplaneModal = {
+            title: currentModalTitle,
+            content: currentModalBody,
+            formValues: formValues
+        };
+        
+        const content = `
+            <form id="configureSeatForm">
+                <div class="form-group">
+                    <label>Seat:</label>
+                    <input type="text" value="${row}${seatLetter}" disabled>
+                </div>
+                <div class="form-group">
+                    <label>Seat Class:</label>
+                    <select name="seat_class" required>
+                        <option value="ECONOMY" ${config.seat_class === 'ECONOMY' ? 'selected' : ''}>Economy</option>
+                        <option value="BUSINESS" ${config.seat_class === 'BUSINESS' ? 'selected' : ''}>Business</option>
+                        <option value="FIRST" ${config.seat_class === 'FIRST' ? 'selected' : ''}>First</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Seat Category:</label>
+                    <select name="seat_category" required>
+                        <option value="STANDARD" ${config.seat_category === 'STANDARD' ? 'selected' : ''}>Standard</option>
+                        <option value="EXTRA_LEGROOM" ${config.seat_category === 'EXTRA_LEGROOM' ? 'selected' : ''}>Extra Legroom</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Price Multiplier:</label>
+                    <input type="number" name="price_multiplier" step="0.1" value="${config.price_multiplier}" required>
+                    <small style="color: #666;">1.0 = base price, 2.0 = double price, etc.</small>
+                </div>
+                <div class="form-group">
+                    <button type="button" class="btn btn-secondary" onclick="applyToRowAndRestore(${row}, ${seatsPerRow})" style="margin-right: 10px; margin-bottom: 10px;">Apply to Entire Row</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        `;
+        
+        showModal(`Configure Seat ${row}${seatLetter}`, content);
+        
+        document.getElementById('configureSeatForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            window.seatConfig[seatKey] = {
+                seat_class: formData.get('seat_class'),
+                seat_category: formData.get('seat_category'),
+                price_multiplier: parseFloat(formData.get('price_multiplier'))
+            };
+            // Restore the airplane creation modal
+            restoreAirplaneModal();
+            previewSeatMap(); // Refresh preview
+        });
+    };
+    
+    // Function to restore the airplane creation modal
+    window.restoreAirplaneModal = function() {
+        if (window.savedAirplaneModal) {
+            document.getElementById('modalTitle').textContent = window.savedAirplaneModal.title;
+            document.getElementById('modalBody').innerHTML = window.savedAirplaneModal.content;
+            
+            // Restore form values if they were saved
+            if (window.savedAirplaneModal.formValues) {
+                const form = document.getElementById('createAirplaneForm');
+                if (form) {
+                    if (window.savedAirplaneModal.formValues.model) {
+                        form.querySelector('[name="model"]').value = window.savedAirplaneModal.formValues.model;
+                    }
+                    if (window.savedAirplaneModal.formValues.total_seats) {
+                        form.querySelector('[name="total_seats"]').value = window.savedAirplaneModal.formValues.total_seats;
+                    }
+                    if (window.savedAirplaneModal.formValues.rows) {
+                        form.querySelector('[name="rows"]').value = window.savedAirplaneModal.formValues.rows;
+                    }
+                    if (window.savedAirplaneModal.formValues.seats_per_row) {
+                        form.querySelector('[name="seats_per_row"]').value = window.savedAirplaneModal.formValues.seats_per_row;
+                    }
+                }
+            }
+            
+            // Re-attach form submit handler (since we replaced the HTML, the handler is gone)
+            const form = document.getElementById('createAirplaneForm');
+            if (form) {
+                form.addEventListener('submit', async (e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.target);
+                    const data = {
+                        model: formData.get('model'),
+                        total_seats: parseInt(formData.get('total_seats')),
+                        rows: parseInt(formData.get('rows')),
+                        seats_per_row: parseInt(formData.get('seats_per_row'))
+                    };
+
+                    if (data.rows * data.seats_per_row !== data.total_seats) {
+                        alert('Rows × Seats per row must equal total seats');
+                        return;
+                    }
+                    
+                    // Include seat configuration if available
+                    if (window.seatConfig && Object.keys(window.seatConfig).length > 0) {
+                        data.seat_config = window.seatConfig;
+                    }
+
+                    try {
+                        await apiCall('/airplanes', {
+                            method: 'POST',
+                            body: JSON.stringify(data)
+                        });
+                        // Clear seat config after successful creation
+                        window.seatConfig = {};
+                        closeModal();
+                        loadAirplanes();
+                        showSuccess('Airplane created successfully!');
+                    } catch (error) {
+                        alert('Error: ' + error.message);
+                    }
+                });
+            }
+        }
+        // Clear saved modal
+        window.savedAirplaneModal = null;
+    };
+    
+    // Apply configuration to entire row and restore modal
+    window.applyToRowAndRestore = function(row, seatsPerRow) {
+        const formData = new FormData(document.getElementById('configureSeatForm'));
+        const seat_class = formData.get('seat_class');
+        const seat_category = formData.get('seat_category');
+        const price_multiplier = parseFloat(formData.get('price_multiplier'));
+        
+        for (let seat = 0; seat < seatsPerRow; seat++) {
+            const seatLetter = String.fromCharCode(65 + seat);
+            const seatKey = `${row}${seatLetter}`;
+            window.seatConfig[seatKey] = {
+                seat_class: seat_class,
+                seat_category: seat_category,
+                price_multiplier: price_multiplier
+            };
+        }
+        
+        // Restore the airplane creation modal
+        restoreAirplaneModal();
+        previewSeatMap(); // Refresh preview
+        alert(`Configuration applied to entire row ${row}`);
     };
     
     document.getElementById('createAirplaneForm').addEventListener('submit', async (e) => {
@@ -1173,6 +1385,132 @@ function showSuccess(message) {
     alert(message);
 }
 
+// View seat map for an airplane (template)
+async function viewAirplaneSeatMap(airplaneId, model, rows, seatsPerRow) {
+    let preview = '<div style="text-align: center; margin-bottom: 10px;"><strong>Front of Aircraft</strong></div>';
+    preview += '<div style="display: flex; justify-content: center; gap: 2px; margin-bottom: 5px;">';
+    preview += '<span style="width: 30px;"></span>'; // Spacer for row numbers
+    for (let i = 0; i < seatsPerRow; i++) {
+        preview += `<span style="width: 30px; text-align: center; font-weight: bold;">${String.fromCharCode(65 + i)}</span>`;
+    }
+    preview += '</div>';
+    
+    for (let row = 1; row <= rows; row++) {
+        preview += `<div style="display: flex; justify-content: center; gap: 2px; margin-bottom: 2px;">`;
+        preview += `<span style="width: 30px; text-align: right; margin-right: 5px; font-weight: bold;">${row}</span>`;
+        for (let seat = 0; seat < seatsPerRow; seat++) {
+            const seatLetter = String.fromCharCode(65 + seat);
+            // First 3 rows are business class (amber/gold color)
+            const isBusiness = row <= 3;
+            const bgColor = isBusiness ? '#ffa726' : '#e8f5e9';
+            const borderColor = isBusiness ? '#f57c00' : '#ccc';
+            preview += `<span style="width: 30px; height: 30px; border: 1px solid ${borderColor}; display: inline-block; text-align: center; line-height: 30px; background: ${bgColor}; font-weight: ${isBusiness ? 'bold' : 'normal'};">${seatLetter}</span>`;
+        }
+        preview += '</div>';
+    }
+    preview += '<div style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 5px;">';
+    preview += '<strong>Legend:</strong><br>';
+    preview += '<span style="display: inline-block; width: 20px; height: 20px; background: #ffa726; border: 1px solid #f57c00; margin-right: 5px;"></span> Business Class (Rows 1-3)<br>';
+    preview += '<span style="display: inline-block; width: 20px; height: 20px; background: #e8f5e9; border: 1px solid #ccc; margin-right: 5px;"></span> Economy Class';
+    preview += '</div>';
+    
+    showModal(`Seat Map - ${model}`, `<div style="max-height: 500px; overflow-y: auto;">${preview}</div>`);
+}
+
+// View seat map for a flight (with actual seat statuses)
+async function viewFlightSeatMap(flightId, flightNumber) {
+    try {
+        const seats = await apiCall(`/flights/${flightId}/seats`);
+        
+        if (seats.length === 0) {
+            showModal(`Seat Map - ${flightNumber}`, '<p>No seats found for this flight.</p>');
+            return;
+        }
+        
+        // Group seats by row
+        const seatsByRow = {};
+        let maxSeatsPerRow = 0;
+        seats.forEach(seat => {
+            if (!seatsByRow[seat.row_number]) {
+                seatsByRow[seat.row_number] = [];
+            }
+            seatsByRow[seat.row_number].push(seat);
+            maxSeatsPerRow = Math.max(maxSeatsPerRow, seatsByRow[seat.row_number].length);
+        });
+        
+        const rows = Object.keys(seatsByRow).map(Number).sort((a, b) => a - b);
+        
+        let preview = '<div style="text-align: center; margin-bottom: 10px;"><strong>Front of Aircraft</strong></div>';
+        preview += '<div style="display: flex; justify-content: center; gap: 2px; margin-bottom: 5px;">';
+        preview += '<span style="width: 30px;"></span>'; // Spacer for row numbers
+        for (let i = 0; i < maxSeatsPerRow; i++) {
+            preview += `<span style="width: 30px; text-align: center; font-weight: bold;">${String.fromCharCode(65 + i)}</span>`;
+        }
+        preview += '</div>';
+        
+        rows.forEach(rowNum => {
+            preview += `<div style="display: flex; justify-content: center; gap: 2px; margin-bottom: 2px;">`;
+            preview += `<span style="width: 30px; text-align: right; margin-right: 5px; font-weight: bold;">${rowNum}</span>`;
+            
+            const rowSeats = seatsByRow[rowNum].sort((a, b) => a.seat_letter.localeCompare(b.seat_letter));
+            const seatMap = {};
+            rowSeats.forEach(seat => {
+                seatMap[seat.seat_letter] = seat;
+            });
+            
+            for (let i = 0; i < maxSeatsPerRow; i++) {
+                const seatLetter = String.fromCharCode(65 + i);
+                const seat = seatMap[seatLetter];
+                
+                if (seat) {
+                    const isBusiness = seat.seat_class === 'BUSINESS';
+                    const isExtraLegroom = seat.seat_category === 'EXTRA_LEGROOM';
+                    let bgColor, borderColor, textColor = 'black';
+                    
+                    if (seat.status === 'BOOKED') {
+                        bgColor = '#ef5350';
+                        borderColor = '#c62828';
+                        textColor = 'white';
+                    } else if (seat.status === 'HELD') {
+                        bgColor = '#ff6f00';
+                        borderColor = '#e65100';
+                    } else if (isBusiness) {
+                        bgColor = '#ffa726';
+                        borderColor = '#f57c00';
+                    } else if (isExtraLegroom) {
+                        bgColor = '#ba68c8';
+                        borderColor = '#9c27b0';
+                    } else {
+                        bgColor = '#e8f5e9';
+                        borderColor = '#ccc';
+                    }
+                    
+                    preview += `<span style="width: 30px; height: 30px; border: 1px solid ${borderColor}; display: inline-block; text-align: center; line-height: 30px; background: ${bgColor}; color: ${textColor}; font-weight: ${isBusiness ? 'bold' : 'normal'};" title="Row ${seat.row_number}${seat.seat_letter} - ${seat.seat_class} - ${seat.seat_category} - ${seat.status}">${seat.seat_letter}</span>`;
+                } else {
+                    preview += `<span style="width: 30px; height: 30px; display: inline-block;"></span>`;
+                }
+            }
+            preview += '</div>';
+        });
+        
+        preview += '<div style="margin-top: 15px; padding: 10px; background: #f5f5f5; border-radius: 5px;">';
+        preview += '<strong>Legend:</strong><br>';
+        preview += '<span style="display: inline-block; width: 20px; height: 20px; background: #ffa726; border: 1px solid #f57c00; margin-right: 5px;"></span> Business Class (Available)<br>';
+        preview += '<span style="display: inline-block; width: 20px; height: 20px; background: #e8f5e9; border: 1px solid #ccc; margin-right: 5px;"></span> Economy Standard (Available)<br>';
+        preview += '<span style="display: inline-block; width: 20px; height: 20px; background: #ba68c8; border: 1px solid #9c27b0; margin-right: 5px;"></span> Extra Legroom (Available)<br>';
+        preview += '<span style="display: inline-block; width: 20px; height: 20px; background: #ff6f00; border: 1px solid #e65100; margin-right: 5px;"></span> Held<br>';
+        preview += '<span style="display: inline-block; width: 20px; height: 20px; background: #ef5350; border: 1px solid #c62828; margin-right: 5px;"></span> Booked';
+        preview += '</div>';
+        preview += '<div style="margin-top: 15px;">';
+        preview += '<button class="btn btn-primary" onclick="manageFlightSeats(' + flightId + ', \'' + flightNumber + '\')">Manage Seats</button>';
+        preview += '</div>';
+        
+        showModal(`Seat Map - ${flightNumber}`, `<div style="max-height: 500px; overflow-y: auto;">${preview}</div>`);
+    } catch (error) {
+        alert('Error loading seat map: ' + error.message);
+    }
+}
+
 function getAnnouncementTypeColor(type) {
     switch(type) {
         case 'DELAY':
@@ -1185,6 +1523,170 @@ function getAnnouncementTypeColor(type) {
             return '#4caf50';
         default:
             return '#9e9e9e';
+    }
+}
+
+// Manage seats for a flight
+async function manageFlightSeats(flightId, flightNumber) {
+    try {
+        const seats = await apiCall(`/flights/${flightId}/seats`);
+        
+        if (seats.length === 0) {
+            alert('No seats found for this flight.');
+            return;
+        }
+        
+        // Group seats by row
+        const seatsByRow = {};
+        let maxSeatsPerRow = 0;
+        seats.forEach(seat => {
+            if (!seatsByRow[seat.row_number]) {
+                seatsByRow[seat.row_number] = [];
+            }
+            seatsByRow[seat.row_number].push(seat);
+            maxSeatsPerRow = Math.max(maxSeatsPerRow, seatsByRow[seat.row_number].length);
+        });
+        
+        const rows = Object.keys(seatsByRow).map(Number).sort((a, b) => a - b);
+        
+        let content = '<div style="max-height: 400px; overflow-y: auto; margin-bottom: 20px;">';
+        content += '<div style="text-align: center; margin-bottom: 10px;"><strong>Front of Aircraft</strong></div>';
+        content += '<div style="display: flex; justify-content: center; gap: 2px; margin-bottom: 5px;">';
+        content += '<span style="width: 30px;"></span>';
+        for (let i = 0; i < maxSeatsPerRow; i++) {
+            content += `<span style="width: 30px; text-align: center; font-weight: bold;">${String.fromCharCode(65 + i)}</span>`;
+        }
+        content += '</div>';
+        
+        rows.forEach(rowNum => {
+            content += `<div style="display: flex; justify-content: center; gap: 2px; margin-bottom: 2px;">`;
+            content += `<span style="width: 30px; text-align: right; margin-right: 5px; font-weight: bold;">${rowNum}</span>`;
+            
+            const rowSeats = seatsByRow[rowNum].sort((a, b) => a.seat_letter.localeCompare(b.seat_letter));
+            const seatMap = {};
+            rowSeats.forEach(seat => {
+                seatMap[seat.seat_letter] = seat;
+            });
+            
+            for (let i = 0; i < maxSeatsPerRow; i++) {
+                const seatLetter = String.fromCharCode(65 + i);
+                const seat = seatMap[seatLetter];
+                
+                if (seat) {
+                    const isBusiness = seat.seat_class === 'BUSINESS';
+                    const isExtraLegroom = seat.seat_category === 'EXTRA_LEGROOM';
+                    let bgColor, borderColor, textColor = 'black';
+                    
+                    if (seat.status === 'BOOKED') {
+                        bgColor = '#ef5350';
+                        borderColor = '#c62828';
+                        textColor = 'white';
+                    } else if (seat.status === 'HELD') {
+                        bgColor = '#ff6f00';
+                        borderColor = '#e65100';
+                    } else if (isBusiness) {
+                        bgColor = '#ffa726';
+                        borderColor = '#f57c00';
+                    } else if (isExtraLegroom) {
+                        bgColor = '#ba68c8';
+                        borderColor = '#9c27b0';
+                    } else {
+                        bgColor = '#e8f5e9';
+                        borderColor = '#ccc';
+                    }
+                    
+                    content += `<span onclick="editSeat(${seat.id}, ${flightId}, '${seat.seat_letter}', ${seat.row_number})" style="width: 30px; height: 30px; border: 1px solid ${borderColor}; display: inline-block; text-align: center; line-height: 30px; background: ${bgColor}; color: ${textColor}; font-weight: ${isBusiness ? 'bold' : 'normal'}; cursor: pointer;" title="Click to edit: ${seat.seat_class} - ${seat.seat_category}">${seat.seat_letter}</span>`;
+                } else {
+                    content += `<span style="width: 30px; height: 30px; display: inline-block;"></span>`;
+                }
+            }
+            content += '</div>';
+        });
+        
+        content += '</div>';
+        content += '<div style="padding: 10px; background: #f5f5f5; border-radius: 5px; margin-top: 15px;">';
+        content += '<strong>Legend:</strong><br>';
+        content += '<span style="display: inline-block; width: 20px; height: 20px; background: #ffa726; border: 1px solid #f57c00; margin-right: 5px;"></span> Business<br>';
+        content += '<span style="display: inline-block; width: 20px; height: 20px; background: #e8f5e9; border: 1px solid #ccc; margin-right: 5px;"></span> Economy<br>';
+        content += '<span style="display: inline-block; width: 20px; height: 20px; background: #ba68c8; border: 1px solid #9c27b0; margin-right: 5px;"></span> Extra Legroom<br>';
+        content += '<span style="display: inline-block; width: 20px; height: 20px; background: #ff6f00; border: 1px solid #e65100; margin-right: 5px;"></span> Held<br>';
+        content += '<span style="display: inline-block; width: 20px; height: 20px; background: #ef5350; border: 1px solid #c62828; margin-right: 5px;"></span> Booked<br>';
+        content += '<p style="margin-top: 10px; font-size: 12px; color: #666;">Click on any seat to edit its properties</p>';
+        content += '</div>';
+        
+        showModal(`Manage Seats - ${flightNumber}`, content);
+    } catch (error) {
+        alert('Error loading seats: ' + error.message);
+    }
+}
+
+// Edit individual seat
+async function editSeat(seatId, flightId, seatLetter, rowNumber) {
+    try {
+        const seats = await apiCall(`/flights/${flightId}/seats`);
+        const seat = seats.find(s => s.id === seatId);
+        
+        if (!seat) {
+            alert('Seat not found');
+            return;
+        }
+        
+        const content = `
+            <form id="editSeatForm">
+                <div class="form-group">
+                    <label>Seat:</label>
+                    <input type="text" value="${rowNumber}${seatLetter}" disabled>
+                </div>
+                <div class="form-group">
+                    <label>Seat Class:</label>
+                    <select name="seat_class" required>
+                        <option value="ECONOMY" ${seat.seat_class === 'ECONOMY' ? 'selected' : ''}>Economy</option>
+                        <option value="BUSINESS" ${seat.seat_class === 'BUSINESS' ? 'selected' : ''}>Business</option>
+                        <option value="FIRST" ${seat.seat_class === 'FIRST' ? 'selected' : ''}>First</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Seat Category:</label>
+                    <select name="seat_category" required>
+                        <option value="STANDARD" ${seat.seat_category === 'STANDARD' ? 'selected' : ''}>Standard</option>
+                        <option value="EXTRA_LEGROOM" ${seat.seat_category === 'EXTRA_LEGROOM' ? 'selected' : ''}>Extra Legroom</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Price Multiplier:</label>
+                    <input type="number" name="price_multiplier" step="0.1" value="${seat.price_multiplier}" required>
+                    <small style="color: #666;">1.0 = base price, 2.0 = double price, etc.</small>
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary">Update Seat</button>
+                </div>
+            </form>
+        `;
+        
+        showModal(`Edit Seat ${rowNumber}${seatLetter}`, content);
+        
+        document.getElementById('editSeatForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            
+            try {
+                await apiCall(`/staff/flights/${flightId}/seats/${seatId}`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({
+                        seat_class: formData.get('seat_class'),
+                        seat_category: formData.get('seat_category'),
+                        price_multiplier: parseFloat(formData.get('price_multiplier'))
+                    })
+                });
+                closeModal();
+                manageFlightSeats(flightId, ''); // Refresh seat map
+                showSuccess('Seat updated successfully!');
+            } catch (error) {
+                alert('Error updating seat: ' + error.message);
+            }
+        });
+    } catch (error) {
+        alert('Error loading seat: ' + error.message);
     }
 }
 

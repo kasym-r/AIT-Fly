@@ -16,6 +16,8 @@ from sqlalchemy import and_, or_
 from datetime import datetime, timedelta
 import secrets
 from typing import List, Optional
+import asyncio
+from contextlib import asynccontextmanager
 
 from database import Base, engine, get_db
 from models import (
@@ -30,7 +32,7 @@ from schemas import (
     AirportCreate, AirportResponse,
     AirplaneCreate, AirplaneResponse,
     FlightCreate, FlightResponse, FlightSearch, FlightWithDetailsResponse,
-    SeatResponse, BookingCreate, BookingResponse,
+    SeatResponse, SeatUpdate, BookingCreate, BookingResponse,
     PaymentCreate, PaymentResponse,
     CheckInCreate, CheckInResponse,
     AnnouncementCreate, AnnouncementResponse
@@ -62,12 +64,120 @@ with engine.connect() as conn:
         except Exception as e:
             print(f"Note: Could not add announcement_type column (may already exist): {e}")
             conn.rollback()
+    if 'user_id' not in columns:
+        try:
+            conn.execute(text("ALTER TABLE announcements ADD COLUMN user_id INTEGER"))
+            conn.commit()
+            print("✓ Added user_id column to announcements table")
+        except Exception as e:
+            print(f"Note: Could not add user_id column (may already exist): {e}")
+            conn.rollback()
+
+# Background task to automatically update flight statuses
+async def auto_update_flight_statuses():
+    """Background task that checks and updates flight statuses based on time"""
+    while True:
+        try:
+            # Get a database session
+            db_gen = get_db()
+            db = next(db_gen)
+            
+            try:
+                now = datetime.now()
+                
+                # Find flights that should be updated
+                # 1. Flights that should be DEPARTED (departure time has passed, status is SCHEDULED or BOARDING)
+                flights_to_depart = db.query(Flight).filter(
+                    and_(
+                        Flight.departure_time <= now,
+                        Flight.status.in_([FlightStatus.SCHEDULED, FlightStatus.BOARDING, FlightStatus.DELAYED]),
+                        Flight.status != FlightStatus.CANCELLED
+                    )
+                ).all()
+                
+                for flight in flights_to_depart:
+                    old_status = flight.status
+                    flight.status = FlightStatus.DEPARTED
+                    db.commit()
+                    
+                    # Create announcement for passengers
+                    bookings = db.query(Booking).filter(
+                        and_(
+                            Booking.flight_id == flight.id,
+                            Booking.status == BookingStatus.CONFIRMED
+                        )
+                    ).all()
+                    
+                    if bookings:
+                        announcement = Announcement(
+                            title=f"Flight {flight.flight_number} Status Update",
+                            message=f"Flight {flight.flight_number} has departed. Safe travels!",
+                            announcement_type=AnnouncementType.GENERAL,
+                            flight_id=flight.id,
+                            is_active=True
+                        )
+                        db.add(announcement)
+                        db.commit()
+                
+                # 2. Flights that should be ARRIVED (arrival time has passed, status is DEPARTED)
+                flights_to_arrive = db.query(Flight).filter(
+                    and_(
+                        Flight.arrival_time <= now,
+                        Flight.status == FlightStatus.DEPARTED
+                    )
+                ).all()
+                
+                for flight in flights_to_arrive:
+                    flight.status = FlightStatus.ARRIVED
+                    db.commit()
+                    
+                    # Create announcement for passengers
+                    bookings = db.query(Booking).filter(
+                        and_(
+                            Booking.flight_id == flight.id,
+                            Booking.status == BookingStatus.CONFIRMED
+                        )
+                    ).all()
+                    
+                    if bookings:
+                        announcement = Announcement(
+                            title=f"Flight {flight.flight_number} Status Update",
+                            message=f"Flight {flight.flight_number} has arrived. Thank you for flying with us!",
+                            announcement_type=AnnouncementType.GENERAL,
+                            flight_id=flight.id,
+                            is_active=True
+                        )
+                        db.add(announcement)
+                        db.commit()
+            finally:
+                db.close()
+            
+        except Exception as e:
+            print(f"Error in auto_update_flight_statuses: {e}")
+        
+        # Check every minute
+        await asyncio.sleep(60)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Start background task
+    task = asyncio.create_task(auto_update_flight_statuses())
+    yield
+    # Shutdown: Cancel background task
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
 
 # Create FastAPI app
 app = FastAPI(
     title="Airline Booking API",
     description="Simple airline booking system API",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # CORS middleware - allows Flutter app to call this API
@@ -289,7 +399,14 @@ def create_airplane(
     Create a new airplane - staff only.
     After creating, seats should be created for flights using this airplane.
     """
-    new_airplane = Airplane(**airplane_data.dict())
+    airplane_dict = airplane_data.dict()
+    seat_config = airplane_dict.pop('seat_config', None)
+    
+    new_airplane = Airplane(**airplane_dict)
+    if seat_config:
+        import json
+        new_airplane.seat_config = json.dumps(seat_config)
+    
     db.add(new_airplane)
     db.commit()
     db.refresh(new_airplane)
@@ -403,16 +520,32 @@ def create_flight(
     # Create seats for this flight
     # This creates a seat map based on the airplane configuration
     seats = []
+    
+    # Load seat configuration from airplane if available
+    seat_config = {}
+    if airplane.seat_config:
+        import json
+        try:
+            seat_config = json.loads(airplane.seat_config)
+        except:
+            seat_config = {}
+    
     for row in range(1, airplane.rows + 1):
         for seat_num in range(airplane.seats_per_row):
             seat_letter = chr(65 + seat_num)  # A, B, C, D...
-            seat_class = "ECONOMY"
-            price_multiplier = 1.0
+            seat_key = f"{row}{seat_letter}"
             
-            # Simple logic: first 3 rows are business class
-            if row <= 3:
-                seat_class = "BUSINESS"
-                price_multiplier = 2.0
+            # Use configured seat properties if available, otherwise use defaults
+            if seat_key in seat_config:
+                config = seat_config[seat_key]
+                seat_class = config.get('seat_class', 'ECONOMY')
+                seat_category = SeatCategory(config.get('seat_category', 'STANDARD'))
+                price_multiplier = config.get('price_multiplier', 1.0)
+            else:
+                # Default logic: first 3 rows are business class
+                seat_class = "BUSINESS" if row <= 3 else "ECONOMY"
+                seat_category = SeatCategory.STANDARD
+                price_multiplier = 2.0 if row <= 3 else 1.0
             
             seat = Seat(
                 flight_id=new_flight.id,
@@ -420,6 +553,7 @@ def create_flight(
                 row_number=row,
                 seat_letter=seat_letter,
                 seat_class=seat_class,
+                seat_category=seat_category,
                 price_multiplier=price_multiplier,
                 status=SeatStatus.AVAILABLE
             )
@@ -588,6 +722,17 @@ def update_flight_gate(
         flight.terminal = terminal
     
     db.commit()
+    
+    # Update check-in records for this flight to reflect the new gate
+    # This ensures boarding passes show the current gate even if check-in happened before gate change
+    if gate is not None and gate != old_gate:
+        check_ins = db.query(CheckIn).join(Booking).filter(
+            Booking.flight_id == flight_id
+        ).all()
+        for check_in in check_ins:
+            # Update boarding gate in check-in record to match new flight gate
+            check_in.boarding_gate = gate if gate.startswith("Gate") else f"Gate {gate}"
+        db.commit()
     
     # Create gate change announcement if gate changed
     if gate and gate != old_gate:
@@ -898,6 +1043,57 @@ def hold_seat(
     db.commit()
     
     return {"message": "Seat held for 10 minutes", "expires_at": seat.hold_expires_at}
+
+
+@app.patch("/staff/flights/{flight_id}/seats/{seat_id}")
+def update_seat(
+    flight_id: int,
+    seat_id: int,
+    seat_update: SeatUpdate,
+    current_user: User = Depends(get_current_staff_user),
+    db: Session = Depends(get_db)
+):
+    """Update seat properties (class, category, price multiplier) - staff only"""
+    seat = db.query(Seat).filter(
+        and_(
+            Seat.id == seat_id,
+            Seat.flight_id == flight_id
+        )
+    ).first()
+    
+    if not seat:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Seat not found"
+        )
+    
+    # Update seat properties
+    if seat_update.seat_class is not None:
+        seat.seat_class = seat_update.seat_class
+    if seat_update.seat_category is not None:
+        seat.seat_category = seat_update.seat_category
+    if seat_update.price_multiplier is not None:
+        seat.price_multiplier = seat_update.price_multiplier
+    
+    db.commit()
+    db.refresh(seat)
+    
+    # Calculate price for response
+    flight = seat.flight
+    price = flight.base_price * seat.price_multiplier
+    
+    from schemas import SeatResponse
+    return SeatResponse(
+        id=seat.id,
+        flight_id=seat.flight_id,
+        row_number=seat.row_number,
+        seat_letter=seat.seat_letter,
+        seat_class=seat.seat_class,
+        seat_category=seat.seat_category,
+        price_multiplier=seat.price_multiplier,
+        status=seat.status,
+        price=price
+    )
 
 
 @app.delete("/flights/{flight_id}/seats/{seat_id}/hold")
@@ -1265,8 +1461,9 @@ def cancel_booking(
     db: Session = Depends(get_db)
 ):
     """
-    Cancel a pending booking and release the held seat.
-    Only bookings with CREATED status can be cancelled this way.
+    Cancel a booking and release the seat.
+    Can cancel both CREATED (pending) and CONFIRMED (paid) bookings.
+    No refund is provided for confirmed bookings.
     """
     booking = db.query(Booking).filter(Booking.id == booking_id).first()
     if not booking:
@@ -1282,11 +1479,19 @@ def cancel_booking(
             detail="Not authorized"
         )
     
-    # Only allow cancelling CREATED bookings (not yet paid)
-    if booking.status != BookingStatus.CREATED:
+    # Check if flight has already departed
+    if booking.flight.status == FlightStatus.DEPARTED:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only pending (unpaid) bookings can be cancelled. Contact support for confirmed bookings."
+            detail="Cannot cancel booking for a flight that has already departed"
+        )
+    
+    # Allow cancelling both CREATED and CONFIRMED bookings
+    was_confirmed = booking.status == BookingStatus.CONFIRMED
+    if booking.status not in [BookingStatus.CREATED, BookingStatus.CONFIRMED]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This booking cannot be cancelled"
         )
     
     # Release the seat
@@ -1299,7 +1504,11 @@ def cancel_booking(
     
     db.commit()
     
-    return {"message": "Booking cancelled and seat released"}
+    message = "Booking cancelled and seat released"
+    if was_confirmed:
+        message += ". Note: No refund will be provided for cancelled confirmed bookings."
+    
+    return {"message": message}
 
 
 # ============ PAYMENT ROUTES ============
@@ -1358,6 +1567,21 @@ def create_payment(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized"
         )
+    
+    # Check if booking is expired (10 minutes from creation)
+    if booking.status == BookingStatus.CREATED:
+        expiry_time = booking.created_at + timedelta(minutes=10)
+        if datetime.utcnow() > expiry_time:
+            # Booking expired - cancel it and release the seat
+            booking.status = BookingStatus.CANCELLED
+            seat = booking.seat
+            seat.status = SeatStatus.AVAILABLE
+            seat.hold_expires_at = None
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Booking has expired. The seat has been released. Please create a new booking."
+            )
     
     # Check if payment already exists
     existing_payment = db.query(Payment).filter(
@@ -1514,10 +1738,15 @@ def check_in(
     if existing_check_in:
         return existing_check_in
     
-    # Create check-in
+    # Create check-in - use flight's gate if set, otherwise use a default
+    boarding_gate = flight.gate if flight.gate else f"Gate {secrets.randbelow(50) + 1}"
+    # If gate doesn't start with "Gate", add it
+    if boarding_gate and not boarding_gate.startswith("Gate"):
+        boarding_gate = f"Gate {boarding_gate}"
+    
     new_check_in = CheckIn(
         booking_id=booking.id,
-        boarding_gate=f"Gate {secrets.randbelow(50) + 1}",  # Mock gate
+        boarding_gate=boarding_gate,
         boarding_time=flight.departure_time - timedelta(minutes=30)  # 30 min before departure
     )
     db.add(new_check_in)
@@ -1578,17 +1807,22 @@ def get_boarding_pass(
     # QR code contains: booking_reference, ticket_number, flight_number, seat
     qr_payload = f"{booking.booking_reference}|{ticket.ticket_number}|{booking.flight.flight_number}|{booking.seat.row_number}{booking.seat.seat_letter}"
     
+    # Use current gate/terminal from flight (may have been updated after check-in)
+    # Fall back to check-in gate if flight gate is not set
+    current_gate = booking.flight.gate if booking.flight.gate else check_in.boarding_gate
+    
     return {
         "booking_reference": booking.booking_reference,
         "ticket_number": ticket.ticket_number,
         "passenger_name": f"{profile.first_name} {profile.last_name}",
         "flight_number": booking.flight.flight_number,
         "seat": f"{booking.seat.row_number}{booking.seat.seat_letter}",
-        "boarding_gate": check_in.boarding_gate,
+        "boarding_gate": current_gate,  # Use current flight gate (updated if changed)
         "boarding_time": check_in.boarding_time,
         "departure_time": booking.flight.departure_time,
         "origin": f"{booking.flight.origin_airport.code} - {booking.flight.origin_airport.name}",
         "destination": f"{booking.flight.destination_airport.code} - {booking.flight.destination_airport.name}",
+        "terminal": booking.flight.terminal,  # Always use current terminal from flight
         "qr_code": qr_payload
     }
 
@@ -1612,12 +1846,13 @@ def get_announcements(
     ).distinct().all()
     user_flight_ids = [f[0] for f in user_flight_ids]
     
-    # Get general announcements + announcements for user's flights
+    # Get general announcements + flight-specific announcements for user's flights + personal announcements
     announcements = db.query(Announcement).filter(
         Announcement.is_active == True,
         or_(
-            Announcement.flight_id == None,  # General announcements
-            Announcement.flight_id.in_(user_flight_ids)  # User's flight announcements
+            and_(Announcement.flight_id == None, Announcement.user_id == None),  # General announcements
+            and_(Announcement.flight_id.in_(user_flight_ids), Announcement.user_id == None),  # User's flight announcements (not personal)
+            Announcement.user_id == current_user.id  # Personal announcements for this user
         )
     ).order_by(Announcement.created_at.desc()).all()
     
@@ -1637,6 +1872,7 @@ def get_announcements(
             message=ann.message,
             announcement_type=ann_type,
             flight_id=ann.flight_id,
+            user_id=getattr(ann, 'user_id', None),  # Handle case where user_id might not exist in DB yet
             created_at=ann.created_at,
             is_active=ann.is_active
         ))
@@ -1667,6 +1903,7 @@ def get_public_announcements(db: Session = Depends(get_db)):
             message=ann.message,
             announcement_type=ann_type,
             flight_id=ann.flight_id,
+            user_id=getattr(ann, 'user_id', None),  # Handle case where user_id might not exist in DB yet
             created_at=ann.created_at,
             is_active=ann.is_active
         ))
@@ -1697,6 +1934,7 @@ def get_all_announcements(
             message=ann.message,
             announcement_type=ann_type,
             flight_id=ann.flight_id,
+            user_id=getattr(ann, 'user_id', None),  # Handle case where user_id might not exist in DB yet
             created_at=ann.created_at,
             is_active=ann.is_active
         ))
@@ -1984,9 +2222,20 @@ def reassign_seat(
     # Recalculate price
     booking.total_price = booking.flight.base_price * new_seat.price_multiplier
     
+    # Create a personal notification for the user about seat reassignment
+    announcement = Announcement(
+        title=f"Seat Reassignment - Flight {booking.flight.flight_number}",
+        message=f"Your seat has been reassigned from {old_seat.row_number}{old_seat.seat_letter} to {new_seat.row_number}{new_seat.seat_letter} for flight {booking.flight.flight_number}. Please check your booking details.",
+        announcement_type=AnnouncementType.GENERAL,
+        flight_id=booking.flight_id,  # Flight-specific
+        user_id=booking.user_id,  # Personal notification for this specific user
+        is_active=True
+    )
+    db.add(announcement)
+    
     db.commit()
     
-    return {"message": f"Seat reassigned from {old_seat.row_number}{old_seat.seat_letter} to {new_seat.row_number}{new_seat.seat_letter}"}
+    return {"message": f"Seat reassigned from {old_seat.row_number}{old_seat.seat_letter} to {new_seat.row_number}{new_seat.seat_letter}. User has been notified."}
 
 
 # Root endpoint

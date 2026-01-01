@@ -146,6 +146,7 @@ class Airplane(Base):
     total_seats = Column(Integer, nullable=False)
     rows = Column(Integer, nullable=False)  # Number of rows
     seats_per_row = Column(Integer, nullable=False)  # Seats per row
+    seat_config = Column(String, nullable=True)  # JSON string storing seat configuration (class, category, price_multiplier per seat)
     
     # Relationships
     flights = relationship("Flight", back_populates="airplane")
@@ -167,6 +168,8 @@ class Flight(Base):
     arrival_time = Column(DateTime, nullable=False)
     base_price = Column(Float, nullable=False)  # Base price for economy seats
     status = Column(SQLEnum(FlightStatus), default=FlightStatus.SCHEDULED)
+    gate = Column(String, nullable=True)  # Gate number (e.g., "A12")
+    terminal = Column(String, nullable=True)  # Terminal number (e.g., "Terminal 1")
     created_at = Column(DateTime, default=datetime.utcnow)
     
     # Relationships
@@ -282,7 +285,7 @@ class CheckIn(Base):
 class Announcement(Base):
     """
     Announcement table - stores announcements (created by staff)
-    Can be general (flight_id=None) or flight-specific (flight_id set)
+    Can be general (flight_id=None, user_id=None), flight-specific (flight_id set, user_id=None), or personal (user_id set)
     """
     __tablename__ = "announcements"
     
@@ -291,11 +294,13 @@ class Announcement(Base):
     message = Column(String, nullable=False)
     announcement_type = Column(SQLEnum(AnnouncementType), default=AnnouncementType.GENERAL)
     flight_id = Column(Integer, ForeignKey("flights.id"), nullable=True)  # None = general announcement
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)  # None = not user-specific, set = personal notification
     created_at = Column(DateTime, default=datetime.utcnow)
     is_active = Column(Boolean, default=True)  # Staff can deactivate announcements
     
-    # Relationship
+    # Relationships
     flight = relationship("Flight")
+    user = relationship("User")
 
 
 

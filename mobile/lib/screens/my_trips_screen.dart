@@ -170,7 +170,8 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
           'Booking: ${booking.bookingReference}\n'
           'Flight: ${booking.flight.flightNumber}\n'
           'Seat: ${booking.seat.seatNumber}\n\n'
-          'The seat will be released and made available for others.',
+          'The seat will be released and made available for others.'
+          '${booking.status == 'CONFIRMED' ? '\n\n⚠️ Note: No refund will be provided for confirmed bookings.' : ''}',
         ),
         actions: [
           TextButton(
@@ -194,8 +195,10 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
         await ApiService.cancelBooking(booking.id);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Booking cancelled. Seat has been released.'),
+            SnackBar(
+              content: Text(booking.status == 'CONFIRMED' 
+                ? 'Booking cancelled. Note: No refund will be provided.'
+                : 'Booking cancelled. Seat has been released.'),
               backgroundColor: Colors.green,
             ),
           );
@@ -212,6 +215,10 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
         }
       }
     }
+  }
+  
+  Future<void> _cancelConfirmedBooking(Booking booking) async {
+    await _cancelPendingBooking(booking);
   }
 
   Future<void> _checkIn(Booking booking) async {
@@ -372,15 +379,25 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
                                   ),
                                 ],
                               ),
-                              if (boardingPass.boardingGate != null)
+                              if (boardingPass.boardingGate != null || boardingPass.terminal != null)
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
-                                    const Text('GATE', style: AITFlyTheme.bodySmall),
-                                    Text(
-                                      boardingPass.boardingGate!,
-                                      style: AITFlyTheme.heading3,
-                                    ),
+                                    if (boardingPass.terminal != null) ...[
+                                      const Text('TERMINAL', style: AITFlyTheme.bodySmall),
+                                      Text(
+                                        boardingPass.terminal!,
+                                        style: AITFlyTheme.bodyMedium.copyWith(fontWeight: FontWeight.bold),
+                                      ),
+                                      const SizedBox(height: 4),
+                                    ],
+                                    if (boardingPass.boardingGate != null) ...[
+                                      const Text('GATE', style: AITFlyTheme.bodySmall),
+                                      Text(
+                                        boardingPass.boardingGate!,
+                                        style: AITFlyTheme.heading3,
+                                      ),
+                                    ],
                                   ],
                                 ),
                               Column(
@@ -1057,6 +1074,25 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
                       // Action Buttons
                       if (isUpcoming) ...[
                         const Divider(height: 32),
+                        // Cancel button for confirmed bookings
+                        if (booking.status == 'CONFIRMED') ...[
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () => _cancelConfirmedBooking(booking),
+                              icon: const Icon(Icons.cancel, color: Colors.red),
+                              label: const Text(
+                                'Cancel Booking',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Colors.red),
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                        ],
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [

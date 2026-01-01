@@ -111,6 +111,7 @@ class AirplaneCreate(BaseModel):
     total_seats: int
     rows: int
     seats_per_row: int
+    seat_config: Optional[dict] = None  # Optional seat configuration: {"1A": {"seat_class": "BUSINESS", ...}, ...}
 
 
 class AirplaneResponse(BaseModel):
@@ -150,6 +151,8 @@ class FlightResponse(BaseModel):
     arrival_time: datetime
     base_price: float
     status: FlightStatus
+    gate: Optional[str] = None
+    terminal: Optional[str] = None
     created_at: datetime
     
     class Config:
@@ -174,6 +177,8 @@ class FlightWithDetailsResponse(BaseModel):
     arrival_time: datetime
     base_price: float
     status: FlightStatus
+    gate: Optional[str] = None
+    terminal: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -213,6 +218,13 @@ class SeatResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+class SeatUpdate(BaseModel):
+    """Schema for updating seat properties"""
+    seat_class: Optional[str] = None  # ECONOMY, BUSINESS, FIRST
+    seat_category: Optional[SeatCategory] = None  # STANDARD or EXTRA_LEGROOM
+    price_multiplier: Optional[float] = None
 
 
 # ============ BOOKING SCHEMAS ============
@@ -298,6 +310,7 @@ class AnnouncementResponse(BaseModel):
     message: str
     announcement_type: str
     flight_id: Optional[int]  # None = general, set = for specific flight
+    user_id: Optional[int] = None  # None = not user-specific, set = personal notification
     created_at: datetime
     is_active: bool
     

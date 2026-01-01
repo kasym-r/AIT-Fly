@@ -577,6 +577,7 @@ class BoardingPass {
   final String flightNumber;
   final String seat;
   final String? boardingGate;
+  final String? terminal;  // Optional terminal
   final DateTime? boardingTime;
   final DateTime departureTime;
   final String origin;
@@ -590,6 +591,7 @@ class BoardingPass {
     required this.flightNumber,
     required this.seat,
     this.boardingGate,
+    this.terminal,
     this.boardingTime,
     required this.departureTime,
     required this.origin,
@@ -605,6 +607,7 @@ class BoardingPass {
       flightNumber: json['flight_number'],
       seat: json['seat'],
       boardingGate: json['boarding_gate'],
+      terminal: json['terminal'],
       boardingTime: json['boarding_time'] != null
           ? DateTime.parse(json['boarding_time'])
           : null,
