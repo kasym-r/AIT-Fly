@@ -698,10 +698,10 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
                         color: AITFlyTheme.error.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Row(
+                      child: const Row(
                         children: [
                           Icon(Icons.info_outline, color: AITFlyTheme.error, size: 16),
-                          const SizedBox(width: 8),
+                          SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'Your booking has expired. The seat has been released.',

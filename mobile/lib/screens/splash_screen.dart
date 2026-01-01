@@ -73,19 +73,19 @@ class _SplashScreenState extends State<SplashScreen> {
     return Scaffold(
       body: Container(
         decoration: AITFlyTheme.gradientBackground,
-        child: Center(
+        child: const Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               // AIT Fly Logo
-              const AITFlyLogo(
+              AITFlyLogo(
                 size: 100,
                 showTagline: true,
               ),
-              const SizedBox(height: 48),
+              SizedBox(height: 48),
               
               // Loading indicator
-              const CircularProgressIndicator(
+              CircularProgressIndicator(
                 valueColor: AlwaysStoppedAnimation<Color>(AITFlyTheme.primaryPurple),
               ),
             ],
