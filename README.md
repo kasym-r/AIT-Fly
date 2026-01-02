@@ -1,4 +1,4 @@
-# ✈️ AIT Airlines – Setup Guide
+# ✈️ AIT Fly – Setup Guide
 
 ## Step 1: Backend Setup
 
