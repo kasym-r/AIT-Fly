@@ -25,6 +25,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   
+  // Password visibility toggles
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
+  
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -152,7 +156,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         Text(
                           'Join AIT Fly and start your journey',
                           style: AITFlyTheme.bodyMedium.copyWith(
-                            color: AITFlyTheme.mediumGray,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -171,9 +176,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: 'Email',
-                            prefixIcon: Icon(Icons.email_outlined, color: AITFlyTheme.primaryPurple),
+                            prefixIcon: const Icon(Icons.email_outlined, color: Colors.black),
+                            labelStyle: const TextStyle(
+                              color: AITFlyTheme.darkGray,
+                            ),
+                            floatingLabelStyle: TextStyle(
+                              color: Colors.black.withOpacity(0.8),
+                              fontWeight: FontWeight.w600,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AITFlyTheme.darkPurple),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AITFlyTheme.darkPurple, width: 2),
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AITFlyTheme.darkPurple),
+                            ),
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
@@ -190,10 +214,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         // Password field
                         TextFormField(
                           controller: _passwordController,
-                          obscureText: true,
-                          decoration: const InputDecoration(
+                          obscureText: _obscurePassword,
+                          decoration: InputDecoration(
                             labelText: 'Password',
-                            prefixIcon: Icon(Icons.lock_outline, color: AITFlyTheme.primaryPurple),
+                            prefixIcon: const Icon(Icons.lock_outline, color: Colors.black),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                                color: Colors.black,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                            ),
+                            labelStyle: const TextStyle(
+                              color: AITFlyTheme.darkGray,
+                            ),
+                            floatingLabelStyle: TextStyle(
+                              color: Colors.black.withOpacity(0.8),
+                              fontWeight: FontWeight.w600,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AITFlyTheme.darkPurple),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AITFlyTheme.darkPurple, width: 2),
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AITFlyTheme.darkPurple),
+                            ),
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
@@ -210,10 +264,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         // Confirm password field
                         TextFormField(
                           controller: _confirmPasswordController,
-                          obscureText: true,
-                          decoration: const InputDecoration(
+                          obscureText: _obscureConfirmPassword,
+                          decoration: InputDecoration(
                             labelText: 'Confirm Password',
-                            prefixIcon: Icon(Icons.lock_outline, color: AITFlyTheme.primaryPurple),
+                            prefixIcon: const Icon(Icons.lock_outline, color: Colors.black),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                                color: Colors.black,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscureConfirmPassword = !_obscureConfirmPassword;
+                                });
+                              },
+                            ),
+                            labelStyle: const TextStyle(
+                              color: AITFlyTheme.darkGray,
+                            ),
+                            floatingLabelStyle: TextStyle(
+                              color: Colors.black.withOpacity(0.8),
+                              fontWeight: FontWeight.w600,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AITFlyTheme.darkPurple),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AITFlyTheme.darkPurple, width: 2),
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AITFlyTheme.darkPurple),
+                            ),
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
@@ -293,7 +377,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             Text(
                               'Already have an account? ',
                               style: AITFlyTheme.bodyMedium.copyWith(
-                                color: AITFlyTheme.mediumGray,
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                             TextButton(

@@ -7,11 +7,11 @@
 import 'package:flutter/material.dart';
 
 class AITFlyTheme {
-  // Brand Colors - Gray Theme
-  static const Color primaryPurple = Color(0xFF6B7280); // Main gray (keeping name for compatibility)
-  static const Color lightPurple = Color(0xFFF3F4F6); // Light gray for backgrounds
-  static const Color darkPurple = Color(0xFF374151); // Dark gray for accents
-  static const Color purpleAccent = Color(0xFF9CA3AF); // Accent gray
+  // Brand Colors - #c0d9e0 Theme
+  static const Color primaryPurple = Color(0xFFC0D9E0); // Main color #c0d9e0 (keeping name for compatibility)
+  static const Color lightPurple = Color(0xFFE8F2F5); // Light version for backgrounds
+  static const Color darkPurple = Color(0xFF8FB8C4); // Darker version for accents
+  static const Color purpleAccent = Color(0xFFA8CDD8); // Accent color
   
   // Neutral Colors
   static const Color white = Color(0xFFFFFFFF);
@@ -30,13 +30,13 @@ class AITFlyTheme {
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF6B7280), Color(0xFF374151)],
+    colors: [Color(0xFFC0D9E0), Color(0xFF8FB8C4)],
   );
   
   static const LinearGradient lightGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0xFFF9FAFB), Color(0xFFF3F4F6)],
+    colors: [Color(0xFFF0F8FA), Color(0xFFE8F2F5)],
   );
   
   // Text Styles
@@ -139,6 +139,10 @@ class AITFlyTheme {
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         labelStyle: bodyMedium.copyWith(color: mediumGray),
+        floatingLabelStyle: bodyMedium.copyWith(
+          color: darkPurple,
+          fontWeight: FontWeight.w600,
+        ),
       ),
       
       // Elevated Button Theme

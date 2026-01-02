@@ -28,6 +28,9 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   
+  // Password visibility toggle
+  bool _obscurePassword = true;
+  
   // Loading state
   bool _isLoading = false;
   
@@ -151,7 +154,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         Text(
                           'Log in to continue your journey',
                           style: AITFlyTheme.bodyMedium.copyWith(
-                            color: AITFlyTheme.mediumGray,
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -170,9 +174,28 @@ class _LoginScreenState extends State<LoginScreen> {
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: 'Email',
-                            prefixIcon: Icon(Icons.email_outlined, color: AITFlyTheme.primaryPurple),
+                            prefixIcon: const Icon(Icons.email_outlined, color: Colors.black),
+                            labelStyle: const TextStyle(
+                              color: AITFlyTheme.darkGray,
+                            ),
+                            floatingLabelStyle: TextStyle(
+                              color: Colors.black.withOpacity(0.8),
+                              fontWeight: FontWeight.w600,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AITFlyTheme.darkPurple),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AITFlyTheme.darkPurple, width: 2),
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AITFlyTheme.darkPurple),
+                            ),
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
@@ -189,10 +212,40 @@ class _LoginScreenState extends State<LoginScreen> {
                         // Password field
                         TextFormField(
                           controller: _passwordController,
-                          obscureText: true,
-                          decoration: const InputDecoration(
+                          obscureText: _obscurePassword,
+                          decoration: InputDecoration(
                             labelText: 'Password',
-                            prefixIcon: Icon(Icons.lock_outline, color: AITFlyTheme.primaryPurple),
+                            prefixIcon: const Icon(Icons.lock_outline, color: Colors.black),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                                color: Colors.black,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _obscurePassword = !_obscurePassword;
+                                });
+                              },
+                            ),
+                            labelStyle: const TextStyle(
+                              color: AITFlyTheme.darkGray,
+                            ),
+                            floatingLabelStyle: TextStyle(
+                              color: Colors.black.withOpacity(0.8),
+                              fontWeight: FontWeight.w600,
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AITFlyTheme.darkPurple),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AITFlyTheme.darkPurple, width: 2),
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(color: AITFlyTheme.darkPurple),
+                            ),
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
@@ -290,7 +343,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             Text(
                               "Don't have an account? ",
                               style: AITFlyTheme.bodyMedium.copyWith(
-                                color: AITFlyTheme.mediumGray,
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                             TextButton(

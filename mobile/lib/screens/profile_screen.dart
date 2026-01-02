@@ -311,7 +311,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: AITFlyTheme.darkGray),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),

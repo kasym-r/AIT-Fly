@@ -13,17 +13,37 @@
 // """
 
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'models.dart';
 
 class ApiService {
-  // Base URL of the API
+  // Base URL of the API - automatically detects platform
   // For web: http://127.0.0.1:8000 or http://localhost:8000
   // For Android emulator: http://10.0.2.2:8000
   // For iOS simulator/macOS: http://127.0.0.1:8000
-  // For physical device: http://YOUR_COMPUTER_IP:8000
-  static const String baseUrl = 'http://127.0.0.1:8000';  // For web, use 127.0.0.1 or localhost android: 10.0.2.2
+  // For physical device: http://YOUR_COMPUTER_IP:8000 (you need to set this manually)
+  static String get baseUrl {
+    if (kIsWeb) {
+      // Web platform
+      return 'http://127.0.0.1:8000';
+    } else if (Platform.isAndroid) {
+      // Android - use 10.0.2.2 for emulator (maps to host's localhost)
+      // For physical device, you'll need to use your computer's IP address
+      return 'http://10.0.2.2:8000';
+    } else if (Platform.isIOS) {
+      // iOS simulator or macOS
+      return 'http://127.0.0.1:8000';
+    } else if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      // Desktop platforms
+      return 'http://127.0.0.1:8000';
+    } else {
+      // Default fallback
+      return 'http://127.0.0.1:8000';
+    }
+  }
 
   // Key for storing token in shared preferences
   static const String _tokenKey = 'auth_token';
