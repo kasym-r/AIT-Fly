@@ -72,6 +72,25 @@ with engine.connect() as conn:
         except Exception as e:
             print(f"Note: Could not add user_id column (may already exist): {e}")
             conn.rollback()
+    
+    # Migrate bookings table: Add passenger data columns if they don't exist
+    bookings_columns = [col['name'] for col in inspector.get_columns('bookings')]
+    passenger_columns = [
+        'passenger_first_name', 'passenger_last_name', 'passenger_phone',
+        'passenger_passport_number', 'passenger_nationality', 'passenger_date_of_birth'
+    ]
+    for col_name in passenger_columns:
+        if col_name not in bookings_columns:
+            try:
+                if col_name == 'passenger_date_of_birth':
+                    conn.execute(text(f"ALTER TABLE bookings ADD COLUMN {col_name} DATETIME"))
+                else:
+                    conn.execute(text(f"ALTER TABLE bookings ADD COLUMN {col_name} TEXT"))
+                conn.commit()
+                print(f"✓ Added {col_name} column to bookings table")
+            except Exception as e:
+                print(f"Note: Could not add {col_name} column (may already exist): {e}")
+                conn.rollback()
 
 # Background task to automatically update flight statuses
 async def auto_update_flight_statuses():
@@ -373,7 +392,19 @@ def create_airport(
     db: Session = Depends(get_db)
 ):
     """Create a new airport - staff only"""
-    new_airport = Airport(**airport_data.dict())
+    # Check for duplicate airport code
+    existing_airport = db.query(Airport).filter(Airport.code == airport_data.code.upper()).first()
+    if existing_airport:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Airport with code {airport_data.code.upper()} already exists"
+        )
+    
+    # Ensure code is uppercase
+    airport_dict = airport_data.dict()
+    airport_dict['code'] = airport_dict['code'].upper()
+    
+    new_airport = Airport(**airport_dict)
     db.add(new_airport)
     db.commit()
     db.refresh(new_airport)
@@ -399,6 +430,28 @@ def create_airplane(
     Create a new airplane - staff only.
     After creating, seats should be created for flights using this airplane.
     """
+    # Validate: rows × seats_per_row must equal total_seats
+    if airplane_data.rows * airplane_data.seats_per_row != airplane_data.total_seats:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Rows ({airplane_data.rows}) × Seats per row ({airplane_data.seats_per_row}) must equal total seats ({airplane_data.total_seats})"
+        )
+    
+    # Check for duplicate airplane (same model and configuration)
+    existing_airplane = db.query(Airplane).filter(
+        and_(
+            Airplane.model == airplane_data.model,
+            Airplane.rows == airplane_data.rows,
+            Airplane.seats_per_row == airplane_data.seats_per_row,
+            Airplane.total_seats == airplane_data.total_seats
+        )
+    ).first()
+    if existing_airplane:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Airplane with model {airplane_data.model} and same configuration already exists"
+        )
+    
     airplane_dict = airplane_data.dict()
     seat_config = airplane_dict.pop('seat_config', None)
     
@@ -509,6 +562,20 @@ def create_flight(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Airplane not found"
+        )
+    
+    # Validate: arrival must be after departure
+    if flight_data.arrival_time <= flight_data.departure_time:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Arrival time must be after departure time"
+        )
+    
+    # Validate: origin and destination must be different
+    if flight_data.origin_airport_id == flight_data.destination_airport_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Origin and destination airports cannot be the same"
         )
     
     # Create flight
@@ -1166,15 +1233,42 @@ def create_booking(
     - Seats cannot be double-booked
     - Booking starts with CREATED status, becomes CONFIRMED after payment
     """
-    # Check if profile exists
+    # Check if profile exists OR if passenger data is provided in booking
     profile = db.query(PassengerProfile).filter(
         PassengerProfile.user_id == current_user.id
     ).first()
-    if not profile:
+    
+    # If no passenger data provided in booking AND no profile exists, require profile
+    has_passenger_data = any([
+        booking_data.passenger_first_name,
+        booking_data.passenger_last_name,
+        booking_data.passenger_phone,
+        booking_data.passenger_passport_number,
+        booking_data.passenger_nationality,
+        booking_data.passenger_date_of_birth
+    ])
+    
+    if not has_passenger_data and not profile:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Please complete your profile before booking"
+            detail="Please complete your profile before booking, or provide passenger data for this booking"
         )
+    
+    # If passenger data is provided, validate all required fields are present
+    if has_passenger_data:
+        required_fields = [
+            booking_data.passenger_first_name,
+            booking_data.passenger_last_name,
+            booking_data.passenger_phone,
+            booking_data.passenger_passport_number,
+            booking_data.passenger_nationality,
+            booking_data.passenger_date_of_birth
+        ]
+        if not all(required_fields):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="If providing passenger data, all fields (first_name, last_name, phone, passport_number, nationality, date_of_birth) must be provided"
+            )
     
     # Get flight and seat
     flight = db.query(Flight).filter(Flight.id == booking_data.flight_id).first()
@@ -1277,14 +1371,27 @@ def create_booking(
     booking_reference = f"BK{secrets.token_hex(4).upper()}"
     
     # Create booking with CREATED status (not confirmed until payment)
-    new_booking = Booking(
-        user_id=current_user.id,
-        flight_id=booking_data.flight_id,
-        seat_id=booking_data.seat_id,
-        booking_reference=booking_reference,
-        total_price=total_price,
-        status=BookingStatus.CREATED
-    )
+    booking_dict = {
+        "user_id": current_user.id,
+        "flight_id": booking_data.flight_id,
+        "seat_id": booking_data.seat_id,
+        "booking_reference": booking_reference,
+        "total_price": total_price,
+        "status": BookingStatus.CREATED
+    }
+    
+    # Add passenger data if provided
+    if has_passenger_data:
+        booking_dict.update({
+            "passenger_first_name": booking_data.passenger_first_name,
+            "passenger_last_name": booking_data.passenger_last_name,
+            "passenger_phone": booking_data.passenger_phone,
+            "passenger_passport_number": booking_data.passenger_passport_number,
+            "passenger_nationality": booking_data.passenger_nationality,
+            "passenger_date_of_birth": booking_data.passenger_date_of_birth
+        })
+    
+    new_booking = Booking(**booking_dict)
     db.add(new_booking)
     
     # Mark seat as HELD (not BOOKED yet - only becomes BOOKED after payment)
@@ -1327,7 +1434,13 @@ def create_booking(
         status=new_booking.status,
         created_at=new_booking.created_at,
         flight=new_booking.flight,
-        seat=seat_response
+        seat=seat_response,
+        passenger_first_name=new_booking.passenger_first_name,
+        passenger_last_name=new_booking.passenger_last_name,
+        passenger_phone=new_booking.passenger_phone,
+        passenger_passport_number=new_booking.passenger_passport_number,
+        passenger_nationality=new_booking.passenger_nationality,
+        passenger_date_of_birth=new_booking.passenger_date_of_birth
     )
     
     return booking_response
@@ -1389,7 +1502,13 @@ def get_my_bookings(
             status=booking.status,
             created_at=booking.created_at,
             flight=booking.flight,
-            seat=seat_response
+            seat=seat_response,
+            passenger_first_name=booking.passenger_first_name,
+            passenger_last_name=booking.passenger_last_name,
+            passenger_phone=booking.passenger_phone,
+            passenger_passport_number=booking.passenger_passport_number,
+            passenger_nationality=booking.passenger_nationality,
+            passenger_date_of_birth=booking.passenger_date_of_birth
         )
         result.append(booking_response)
     
@@ -1448,7 +1567,13 @@ def get_booking(
         status=booking.status,
         created_at=booking.created_at,
         flight=booking.flight,
-        seat=seat_response
+        seat=seat_response,
+        passenger_first_name=booking.passenger_first_name,
+        passenger_last_name=booking.passenger_last_name,
+        passenger_phone=booking.passenger_phone,
+        passenger_passport_number=booking.passenger_passport_number,
+        passenger_nationality=booking.passenger_nationality,
+        passenger_date_of_birth=booking.passenger_date_of_birth
     )
     
     return booking_response
@@ -2020,7 +2145,13 @@ def get_all_bookings(
             status=booking.status,
             created_at=booking.created_at,
             flight=booking.flight,
-            seat=seat_response
+            seat=seat_response,
+            passenger_first_name=booking.passenger_first_name,
+            passenger_last_name=booking.passenger_last_name,
+            passenger_phone=booking.passenger_phone,
+            passenger_passport_number=booking.passenger_passport_number,
+            passenger_nationality=booking.passenger_nationality,
+            passenger_date_of_birth=booking.passenger_date_of_birth
         )
         result.append(booking_response)
     
@@ -2071,7 +2202,13 @@ def get_bookings_by_flight(
             status=booking.status,
             created_at=booking.created_at,
             flight=booking.flight,
-            seat=seat_response
+            seat=seat_response,
+            passenger_first_name=booking.passenger_first_name,
+            passenger_last_name=booking.passenger_last_name,
+            passenger_phone=booking.passenger_phone,
+            passenger_passport_number=booking.passenger_passport_number,
+            passenger_nationality=booking.passenger_nationality,
+            passenger_date_of_birth=booking.passenger_date_of_birth
         )
         result.append(booking_response)
     
@@ -2118,9 +2255,15 @@ def search_bookings_by_pnr(
         status=booking.status,
         created_at=booking.created_at,
         flight=booking.flight,
-        seat=seat_response
+        seat=seat_response,
+        passenger_first_name=booking.passenger_first_name,
+        passenger_last_name=booking.passenger_last_name,
+        passenger_phone=booking.passenger_phone,
+        passenger_passport_number=booking.passenger_passport_number,
+        passenger_nationality=booking.passenger_nationality,
+        passenger_date_of_birth=booking.passenger_date_of_birth
     )
-    
+
     return booking_response
 
 

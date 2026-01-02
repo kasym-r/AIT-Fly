@@ -169,7 +169,7 @@ class _FlightSearchScreenState extends State<FlightSearchScreen> with WidgetsBin
       case 'BOARDING':
         return Colors.orange;
       case 'DEPARTED':
-        return Colors.purple;
+        return Colors.grey;
       case 'ARRIVED':
         return Colors.green;
       case 'DELAYED':

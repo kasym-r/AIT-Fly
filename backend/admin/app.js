@@ -779,7 +779,6 @@ function showCreateAirplaneModal() {
                     <select name="seat_class" required>
                         <option value="ECONOMY" ${config.seat_class === 'ECONOMY' ? 'selected' : ''}>Economy</option>
                         <option value="BUSINESS" ${config.seat_class === 'BUSINESS' ? 'selected' : ''}>Business</option>
-                        <option value="FIRST" ${config.seat_class === 'FIRST' ? 'selected' : ''}>First</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -1642,7 +1641,6 @@ async function editSeat(seatId, flightId, seatLetter, rowNumber) {
                     <select name="seat_class" required>
                         <option value="ECONOMY" ${seat.seat_class === 'ECONOMY' ? 'selected' : ''}>Economy</option>
                         <option value="BUSINESS" ${seat.seat_class === 'BUSINESS' ? 'selected' : ''}>Business</option>
-                        <option value="FIRST" ${seat.seat_class === 'FIRST' ? 'selected' : ''}>First</option>
                     </select>
                 </div>
                 <div class="form-group">

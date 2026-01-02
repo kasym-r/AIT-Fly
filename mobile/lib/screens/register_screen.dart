@@ -71,10 +71,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: AITFlyTheme.gradientBackground,
         width: double.infinity,
         height: double.infinity,
-        child: SafeArea(
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage('assets/images/Gemini_Generated_Image_y9h8vry9h8vry9h8.jpeg'),
+            fit: BoxFit.cover,
+          ),
+        ),
+        child: Container(
+          // Semi-transparent overlay for better text readability
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.3),
+          ),
+          child: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
               return SingleChildScrollView(
@@ -310,6 +320,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 )
               );
             },
+          ),
           ),
         ),
       ),

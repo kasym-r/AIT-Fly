@@ -1,17 +1,17 @@
 // """
 // AIT Fly App Theme
 // =================
-// Modern, beautiful theme with purple color scheme
+// Modern, beautiful theme with gray color scheme
 // """
 
 import 'package:flutter/material.dart';
 
 class AITFlyTheme {
-  // Brand Colors - Purple Theme
-  static const Color primaryPurple = Color(0xFF8B5CF6); // Main purple
-  static const Color lightPurple = Color(0xFFE9D5FF); // Light purple for backgrounds
-  static const Color darkPurple = Color(0xFF6D28D9); // Dark purple for accents
-  static const Color purpleAccent = Color(0xFFA78BFA); // Accent purple
+  // Brand Colors - Gray Theme
+  static const Color primaryPurple = Color(0xFF6B7280); // Main gray (keeping name for compatibility)
+  static const Color lightPurple = Color(0xFFF3F4F6); // Light gray for backgrounds
+  static const Color darkPurple = Color(0xFF374151); // Dark gray for accents
+  static const Color purpleAccent = Color(0xFF9CA3AF); // Accent gray
   
   // Neutral Colors
   static const Color white = Color(0xFFFFFFFF);
@@ -30,13 +30,13 @@ class AITFlyTheme {
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF8B5CF6), Color(0xFF6D28D9)],
+    colors: [Color(0xFF6B7280), Color(0xFF374151)],
   );
   
   static const LinearGradient lightGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [Color(0xFFF3E8FF), Color(0xFFE9D5FF)],
+    colors: [Color(0xFFF9FAFB), Color(0xFFF3F4F6)],
   );
   
   // Text Styles
@@ -214,7 +214,7 @@ class AITFlyTheme {
     gradient: lightGradient,
   );
   
-  // Decoration for purple gradient buttons
+  // Decoration for gray gradient buttons
   static BoxDecoration get purpleGradientButton => const BoxDecoration(
     gradient: primaryGradient,
     borderRadius: BorderRadius.all(Radius.circular(12)),

@@ -141,10 +141,10 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
   }
 
   List<Booking> get _pastTrips {
-    // Past trips: CONFIRMED bookings with completed flights, or CANCELLED bookings
+    // Past trips: Only CONFIRMED bookings with completed flights (exclude cancelled bookings)
     return _bookings.where((booking) {
       final bookingStatus = booking.status.toUpperCase();
-      if (bookingStatus == 'CANCELLED') return true;
+      if (bookingStatus == 'CANCELLED') return false; // Don't show cancelled bookings in past trips
       if (bookingStatus != 'CONFIRMED') return false;
       final flightStatus = booking.flight.status.toUpperCase();
       return flightStatus == 'DEPARTED' || 
@@ -154,9 +154,9 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
   }
 
   List<Announcement> _getAnnouncementsForFlight(int flightId) {
-    // Filter announcements: general ones + ones for this specific flight
+    // Filter announcements: only flight-specific announcements for this flight (no general ones)
     return _announcements.where((a) => 
-      a.isActive && (a.isGeneral || a.flightId == flightId)
+      a.isActive && a.flightId == flightId
     ).toList();
   }
 
@@ -1000,7 +1000,8 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
                       _buildDetailRow('Status', booking.flight.status),
                       
                       // Passenger Details Section
-                      if (_profile != null) ...[
+                      // Use booking's passenger data if available, otherwise use user profile
+                      if (booking.hasCustomPassengerData || _profile != null) ...[
                         const Divider(height: 32),
                         const Text(
                           'Passenger Details',
@@ -1010,10 +1011,24 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
                           ),
                         ),
                         const SizedBox(height: 12),
-                        _buildDetailRow('Name', '${_profile!.firstName} ${_profile!.lastName}'),
-                        _buildDetailRow('Phone', _profile!.phone),
-                        _buildDetailRow('Passport', _profile!.passportNumber),
-                        _buildDetailRow('Nationality', _profile!.nationality),
+                        if (booking.hasCustomPassengerData) ...[
+                          // Use booking's custom passenger data
+                          _buildDetailRow('Name', '${booking.passengerFirstName ?? ''} ${booking.passengerLastName ?? ''}'.trim()),
+                          if (booking.passengerPhone != null)
+                            _buildDetailRow('Phone', booking.passengerPhone!),
+                          if (booking.passengerPassportNumber != null)
+                            _buildDetailRow('Passport', booking.passengerPassportNumber!),
+                          if (booking.passengerNationality != null)
+                            _buildDetailRow('Nationality', booking.passengerNationality!),
+                          if (booking.passengerDateOfBirth != null)
+                            _buildDetailRow('Date of Birth', DateFormat('yyyy-MM-dd').format(booking.passengerDateOfBirth!)),
+                        ] else if (_profile != null) ...[
+                          // Fall back to user profile
+                          _buildDetailRow('Name', '${_profile!.firstName} ${_profile!.lastName}'),
+                          _buildDetailRow('Phone', _profile!.phone),
+                          _buildDetailRow('Passport', _profile!.passportNumber),
+                          _buildDetailRow('Nationality', _profile!.nationality),
+                        ],
                       ],
 
                       // Flight Details Section
@@ -1135,7 +1150,7 @@ class _MyTripsScreenState extends State<MyTripsScreen> with SingleTickerProvider
       case 'BOARDING':
         return Colors.orange;
       case 'DEPARTED':
-        return Colors.purple;
+        return Colors.grey;
       case 'ARRIVED':
         return Colors.green;
       case 'DELAYED':

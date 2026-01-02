@@ -26,8 +26,27 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen> {
   List<Seat> _seats = [];
   final List<Seat> _selectedSeats = [];  // Changed to support multiple seats
   
+  // Store passenger data for each seat
+  final Map<int, Map<String, dynamic>> _passengerData = {};
+  
+  // Store text controllers for each seat to persist across rebuilds
+  final Map<int, Map<String, TextEditingController>> _passengerControllers = {};
+  
   bool _isLoading = true;
   String? _errorMessage;
+  bool _showPassengerForm = false;
+  
+  @override
+  void dispose() {
+    // Dispose all text controllers
+    for (final controllers in _passengerControllers.values) {
+      for (final controller in controllers.values) {
+        controller.dispose();
+      }
+    }
+    _passengerControllers.clear();
+    super.dispose();
+  }
 
   @override 
   void initState() {
@@ -179,44 +198,83 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen> {
       return;
     }
 
-    // Check if profile exists
-    try {
-      await ApiService.getPassengerProfile();
-    } catch (e) {
-      // Profile doesn't exist - navigate to profile screen
-      if (mounted) {
-        final shouldCreateProfile = await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Profile Required'),
-            content: const Text(
-              'Please complete your passenger profile before booking a flight.\n\n'
-              'You need to provide your name and other details to make a booking.\n\n'
-              'Would you like to create your profile now?',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                child: const Text('Create Profile'),
-              ),
-            ],
-          ),
-        );
-        
-        if (shouldCreateProfile == true) {
-          // Navigate to profile screen
-          await Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => const ProfileScreen()),
-          );
-          // After returning from profile, try booking again
-          _createBooking();
+    // If multiple seats selected, show passenger data form
+    if (_selectedSeats.length > 1 && !_showPassengerForm) {
+      setState(() {
+        _showPassengerForm = true;
+      });
+      return;
+    }
+
+    // If passenger form is shown, validate all passenger data
+    if (_showPassengerForm) {
+      bool allValid = true;
+      for (final seat in _selectedSeats) {
+        final data = _passengerData[seat.id];
+        if (data == null ||
+            data['firstName'] == null || data['firstName'].toString().isEmpty ||
+            data['lastName'] == null || data['lastName'].toString().isEmpty ||
+            data['phone'] == null || data['phone'].toString().isEmpty ||
+            data['passportNumber'] == null || data['passportNumber'].toString().isEmpty ||
+            data['nationality'] == null || data['nationality'].toString().isEmpty ||
+            data['dateOfBirth'] == null) {
+          allValid = false;
+          break;
         }
       }
-      return;
+      
+      if (!allValid) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please fill in all passenger information for each seat'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+        return;
+      }
+    }
+
+    // Check if profile exists (for single seat booking or as fallback)
+    if (_selectedSeats.length == 1 && !_showPassengerForm) {
+      try {
+        await ApiService.getPassengerProfile();
+      } catch (e) {
+        // Profile doesn't exist - navigate to profile screen
+        if (mounted) {
+          final shouldCreateProfile = await showDialog<bool>(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Profile Required'),
+              content: const Text(
+                'Please complete your passenger profile before booking a flight.\n\n'
+                'You need to provide your name and other details to make a booking.\n\n'
+                'Would you like to create your profile now?',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(true),
+                  child: const Text('Create Profile'),
+                ),
+              ],
+            ),
+          );
+          
+          if (shouldCreateProfile == true) {
+            // Navigate to profile screen
+            await Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ProfileScreen()),
+            );
+            // After returning from profile, try booking again
+            _createBooking();
+          }
+        }
+        return;
+      }
     }
 
     // Show loading
@@ -232,9 +290,30 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen> {
       // Create bookings for all selected seats
       List<Booking> createdBookings = [];
       for (final seat in _selectedSeats) {
-        final booking = await ApiService.createBooking(
-          BookingCreate(flightId: _flight!.id, seatId: seat.id),
-        );
+        BookingCreate bookingCreate;
+        
+        // If passenger data is provided for this seat, use it
+        if (_showPassengerForm && _passengerData.containsKey(seat.id)) {
+          final data = _passengerData[seat.id]!;
+          bookingCreate = BookingCreate(
+            flightId: _flight!.id,
+            seatId: seat.id,
+            passengerFirstName: data['firstName'] as String,
+            passengerLastName: data['lastName'] as String,
+            passengerPhone: data['phone'] as String,
+            passengerPassportNumber: data['passportNumber'] as String,
+            passengerNationality: data['nationality'] as String,
+            passengerDateOfBirth: data['dateOfBirth'] as DateTime,
+          );
+        } else {
+          // Use user's profile (single seat booking)
+          bookingCreate = BookingCreate(
+            flightId: _flight!.id,
+            seatId: seat.id,
+          );
+        }
+        
+        final booking = await ApiService.createBooking(bookingCreate);
         createdBookings.add(booking);
       }
 
@@ -620,7 +699,7 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen> {
                               } else if (isBusiness) {
                                 seatColor = Colors.amber.shade800;  // Darker amber for business - more distinct
                               } else if (seat.isExtraLegroom) {
-                                seatColor = Colors.purple.shade300;  // Extra legroom seats
+                                seatColor = Colors.grey.shade400;  // Extra legroom seats
                               } else {
                                 seatColor = Colors.blue.shade300;
                               }
@@ -688,7 +767,7 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen> {
                 children: [
                   _buildLegendItem(Colors.blue.shade300, 'Standard'),
                   _buildLegendItem(Colors.amber.shade800, 'Business'),
-                  _buildLegendItem(Colors.purple.shade300, 'Extra Legroom'),
+                  _buildLegendItem(Colors.grey.shade400, 'Extra Legroom'),
                   _buildLegendItem(Colors.deepOrange.shade400, 'Held'),
                   _buildLegendItem(Colors.red.shade300, 'Booked'),
                   _buildLegendItem(Colors.green, 'Selected'),
@@ -698,8 +777,12 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen> {
 
             const SizedBox(height: 24),
 
+            // Passenger data form (shown when multiple seats selected)
+            if (_showPassengerForm && _selectedSeats.length > 1)
+              _buildPassengerDataForm(),
+
             // Proceed to booking button
-            if (_selectedSeats.isNotEmpty)
+            if (_selectedSeats.isNotEmpty && !_showPassengerForm)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 80), // Extra bottom padding to avoid SnackBar
                 child: SizedBox(
@@ -712,12 +795,36 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen> {
                       foregroundColor: Colors.white,
                     ),
                     child: Text(
-                      'Create Booking - \$${_selectedSeats.fold<double>(0, (sum, seat) => sum + seat.price).toStringAsFixed(2)} (${_selectedSeats.length} seat${_selectedSeats.length > 1 ? 's' : ''})',
+                      _selectedSeats.length > 1
+                          ? 'Enter Passenger Details - \$${_selectedSeats.fold<double>(0, (sum, seat) => sum + seat.price).toStringAsFixed(2)} (${_selectedSeats.length} seats)'
+                          : 'Create Booking - \$${_selectedSeats.fold<double>(0, (sum, seat) => sum + seat.price).toStringAsFixed(2)}',
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
               ),
+            
+            // Create booking button (shown after passenger form is filled)
+            if (_showPassengerForm && _selectedSeats.length > 1)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _createBooking,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: Text(
+                      'Create Booking - \$${_selectedSeats.fold<double>(0, (sum, seat) => sum + seat.price).toStringAsFixed(2)} (${_selectedSeats.length} seats)',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ),
+            
             // Extra spacing when no seats selected
             if (_selectedSeats.isEmpty)
               const SizedBox(height: 80),
@@ -744,6 +851,235 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen> {
           style: const TextStyle(fontSize: 12),
         ),
       ],
+    );
+  }
+
+  Widget _buildPassengerDataForm() {
+    return Card(
+      margin: const EdgeInsets.all(16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Passenger Information',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () {
+                    setState(() {
+                      _showPassengerForm = false;
+                      _passengerData.clear();
+                      // Dispose controllers when form is closed
+                      for (final controllers in _passengerControllers.values) {
+                        for (final controller in controllers.values) {
+                          controller.dispose();
+                        }
+                      }
+                      _passengerControllers.clear();
+                    });
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Please enter passenger details for each selected seat:',
+              style: TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            ..._selectedSeats.map((seat) => _buildPassengerFormForSeat(seat)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPassengerFormForSeat(Seat seat) {
+    final seatData = _passengerData[seat.id] ?? {};
+    
+    // Get or create controllers for this seat
+    if (!_passengerControllers.containsKey(seat.id)) {
+      _passengerControllers[seat.id] = {
+        'firstName': TextEditingController(text: seatData['firstName'] ?? ''),
+        'lastName': TextEditingController(text: seatData['lastName'] ?? ''),
+        'phone': TextEditingController(text: seatData['phone'] ?? ''),
+        'passportNumber': TextEditingController(text: seatData['passportNumber'] ?? ''),
+        'nationality': TextEditingController(text: seatData['nationality'] ?? ''),
+      };
+    }
+    
+    // Update controller text if data changed externally
+    final controllers = _passengerControllers[seat.id]!;
+    if (seatData['firstName'] != null && controllers['firstName']!.text != seatData['firstName']) {
+      controllers['firstName']!.text = seatData['firstName'] ?? '';
+    }
+    if (seatData['lastName'] != null && controllers['lastName']!.text != seatData['lastName']) {
+      controllers['lastName']!.text = seatData['lastName'] ?? '';
+    }
+    if (seatData['phone'] != null && controllers['phone']!.text != seatData['phone']) {
+      controllers['phone']!.text = seatData['phone'] ?? '';
+    }
+    if (seatData['passportNumber'] != null && controllers['passportNumber']!.text != seatData['passportNumber']) {
+      controllers['passportNumber']!.text = seatData['passportNumber'] ?? '';
+    }
+    if (seatData['nationality'] != null && controllers['nationality']!.text != seatData['nationality']) {
+      controllers['nationality']!.text = seatData['nationality'] ?? '';
+    }
+    
+    final firstNameController = controllers['firstName']!;
+    final lastNameController = controllers['lastName']!;
+    final phoneController = controllers['phone']!;
+    final passportController = controllers['passportNumber']!;
+    final nationalityController = controllers['nationality']!;
+    DateTime? dateOfBirth = seatData['dateOfBirth'] as DateTime?;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      color: Colors.blue.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Seat ${seat.seatNumber}',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: firstNameController,
+              textAlign: TextAlign.left,
+              decoration: const InputDecoration(
+                labelText: 'First Name *',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _passengerData[seat.id] = {
+                    ..._passengerData[seat.id] ?? {},
+                    'firstName': value,
+                  };
+                });
+              },
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: lastNameController,
+              textAlign: TextAlign.left,
+              decoration: const InputDecoration(
+                labelText: 'Last Name *',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _passengerData[seat.id] = {
+                    ..._passengerData[seat.id] ?? {},
+                    'lastName': value,
+                  };
+                });
+              },
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: phoneController,
+              keyboardType: TextInputType.phone,
+              textAlign: TextAlign.left,
+              decoration: const InputDecoration(
+                labelText: 'Phone *',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _passengerData[seat.id] = {
+                    ..._passengerData[seat.id] ?? {},
+                    'phone': value,
+                  };
+                });
+              },
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: passportController,
+              textAlign: TextAlign.left,
+              decoration: const InputDecoration(
+                labelText: 'Passport Number *',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _passengerData[seat.id] = {
+                    ..._passengerData[seat.id] ?? {},
+                    'passportNumber': value,
+                  };
+                });
+              },
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: nationalityController,
+              textAlign: TextAlign.left,
+              decoration: const InputDecoration(
+                labelText: 'Nationality *',
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _passengerData[seat.id] = {
+                    ..._passengerData[seat.id] ?? {},
+                    'nationality': value,
+                  };
+                });
+              },
+            ),
+            const SizedBox(height: 12),
+            InkWell(
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: dateOfBirth ?? DateTime.now().subtract(const Duration(days: 365 * 25)),
+                  firstDate: DateTime(1900),
+                  lastDate: DateTime.now(),
+                );
+                if (picked != null) {
+                  setState(() {
+                    _passengerData[seat.id] = {
+                      ..._passengerData[seat.id] ?? {},
+                      'dateOfBirth': picked,
+                    };
+                  });
+                }
+              },
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'Date of Birth *',
+                  border: OutlineInputBorder(),
+                  suffixIcon: Icon(Icons.calendar_today),
+                ),
+                child: Text(
+                  dateOfBirth != null
+                      ? DateFormat('yyyy-MM-dd').format(dateOfBirth)
+                      : 'Select date',
+                  style: TextStyle(
+                    color: dateOfBirth != null ? Colors.black : Colors.grey,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -302,12 +302,14 @@ def seed_database():
             # Narrow body: ABC DEF
             seat_letters = ['A', 'B', 'C', 'D', 'E', 'F']
             business_rows = 4
-            premium_rows = 6
+            # Removed premium class - only ECONOMY and BUSINESS
+            premium_rows = 0
         else:
             # Wide body: ABC DEFG HJK (skip I)
             seat_letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J'][:airplane.seats_per_row]
             business_rows = 6
-            premium_rows = 10
+            # Removed premium class - only ECONOMY and BUSINESS
+            premium_rows = 0
         
         # Define exit rows (extra legroom) - typically rows 10, 11 for narrow body
         exit_rows = [10, 11] if airplane.seats_per_row == 6 else [14, 15, 28, 29]
@@ -322,10 +324,7 @@ def seed_database():
                 if row <= business_rows:
                     seat_class = "BUSINESS"
                     price_multiplier = 2.5
-                # Premium economy
-                elif row <= premium_rows:
-                    seat_class = "PREMIUM"
-                    price_multiplier = 1.5
+                # Removed premium class - all other rows are economy
                 # Extra legroom (exit rows)
                 elif row in exit_rows:
                     seat_category = SeatCategory.EXTRA_LEGROOM

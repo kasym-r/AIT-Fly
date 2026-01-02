@@ -210,6 +210,7 @@ class Booking(Base):
     Booking table - stores booking information
     A booking connects a user, flight, and seat together
     Each booking has a unique PNR code (booking_reference)
+    Can have custom passenger data for this specific booking (for multiple seat bookings)
     """
     __tablename__ = "bookings"
     
@@ -221,6 +222,15 @@ class Booking(Base):
     total_price = Column(Float, nullable=False)
     status = Column(SQLEnum(BookingStatus), default=BookingStatus.CREATED)  # Booking status
     created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Optional passenger data for this specific booking (for multiple seat bookings)
+    # If None, use the user's PassengerProfile
+    passenger_first_name = Column(String, nullable=True)
+    passenger_last_name = Column(String, nullable=True)
+    passenger_phone = Column(String, nullable=True)
+    passenger_passport_number = Column(String, nullable=True)
+    passenger_nationality = Column(String, nullable=True)
+    passenger_date_of_birth = Column(DateTime, nullable=True)
     
     # Relationships
     user = relationship("User", back_populates="bookings")

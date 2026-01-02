@@ -222,7 +222,7 @@ class SeatResponse(BaseModel):
 
 class SeatUpdate(BaseModel):
     """Schema for updating seat properties"""
-    seat_class: Optional[str] = None  # ECONOMY, BUSINESS, FIRST
+    seat_class: Optional[str] = None  # ECONOMY, BUSINESS
     seat_category: Optional[SeatCategory] = None  # STANDARD or EXTRA_LEGROOM
     price_multiplier: Optional[float] = None
 
@@ -233,6 +233,14 @@ class BookingCreate(BaseModel):
     """Schema for creating booking"""
     flight_id: int
     seat_id: int
+    # Optional passenger data for this specific seat (for multiple seat bookings)
+    # If not provided, uses the logged-in user's PassengerProfile
+    passenger_first_name: Optional[str] = None
+    passenger_last_name: Optional[str] = None
+    passenger_phone: Optional[str] = None
+    passenger_passport_number: Optional[str] = None
+    passenger_nationality: Optional[str] = None
+    passenger_date_of_birth: Optional[datetime] = None
 
 
 class BookingResponse(BaseModel):
@@ -247,6 +255,13 @@ class BookingResponse(BaseModel):
     created_at: datetime
     flight: FlightWithDetailsResponse
     seat: SeatResponse
+    # Optional passenger data for this specific booking (for multiple seat bookings)
+    passenger_first_name: Optional[str] = None
+    passenger_last_name: Optional[str] = None
+    passenger_phone: Optional[str] = None
+    passenger_passport_number: Optional[str] = None
+    passenger_nationality: Optional[str] = None
+    passenger_date_of_birth: Optional[datetime] = None
     
     class Config:
         from_attributes = True

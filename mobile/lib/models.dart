@@ -263,6 +263,14 @@ class Booking {
   final DateTime createdAt;
   final Flight flight;
   final Seat seat;
+  
+  // Optional passenger data for this specific booking (for multiple seat bookings)
+  final String? passengerFirstName;
+  final String? passengerLastName;
+  final String? passengerPhone;
+  final String? passengerPassportNumber;
+  final String? passengerNationality;
+  final DateTime? passengerDateOfBirth;
 
   Booking({
     required this.id,
@@ -275,7 +283,22 @@ class Booking {
     required this.createdAt,
     required this.flight,
     required this.seat,
+    this.passengerFirstName,
+    this.passengerLastName,
+    this.passengerPhone,
+    this.passengerPassportNumber,
+    this.passengerNationality,
+    this.passengerDateOfBirth,
   });
+  
+  // Check if this booking has custom passenger data
+  bool get hasCustomPassengerData =>
+      passengerFirstName != null ||
+      passengerLastName != null ||
+      passengerPhone != null ||
+      passengerPassportNumber != null ||
+      passengerNationality != null ||
+      passengerDateOfBirth != null;
 
   factory Booking.fromJson(Map<String, dynamic> json) {
     // Parse date and ensure it's in UTC (backend sends UTC)
@@ -296,6 +319,16 @@ class Booking {
       createdAt = createdAt.toUtc();
     }
     
+    // Parse passenger date of birth if available
+    DateTime? passengerDateOfBirth;
+    if (json['passenger_date_of_birth'] != null) {
+      try {
+        passengerDateOfBirth = DateTime.parse(json['passenger_date_of_birth'] as String);
+      } catch (e) {
+        passengerDateOfBirth = null;
+      }
+    }
+    
     return Booking(
       id: json['id'],
       userId: json['user_id'],
@@ -307,6 +340,12 @@ class Booking {
       createdAt: createdAt,
       flight: Flight.fromJson(json['flight']),
       seat: Seat.fromJson(json['seat']),
+      passengerFirstName: json['passenger_first_name'] as String?,
+      passengerLastName: json['passenger_last_name'] as String?,
+      passengerPhone: json['passenger_phone'] as String?,
+      passengerPassportNumber: json['passenger_passport_number'] as String?,
+      passengerNationality: json['passenger_nationality'] as String?,
+      passengerDateOfBirth: passengerDateOfBirth,
     );
   }
 }
@@ -314,14 +353,49 @@ class Booking {
 class BookingCreate {
   final int flightId;
   final int seatId;
+  // Optional passenger data for this specific seat (for multiple seat bookings)
+  final String? passengerFirstName;
+  final String? passengerLastName;
+  final String? passengerPhone;
+  final String? passengerPassportNumber;
+  final String? passengerNationality;
+  final DateTime? passengerDateOfBirth;
 
-  BookingCreate({required this.flightId, required this.seatId});
+  BookingCreate({
+    required this.flightId,
+    required this.seatId,
+    this.passengerFirstName,
+    this.passengerLastName,
+    this.passengerPhone,
+    this.passengerPassportNumber,
+    this.passengerNationality,
+    this.passengerDateOfBirth,
+  });
 
   Map<String, dynamic> toJson() {
-    return {
+    final json = <String, dynamic>{
       'flight_id': flightId,
       'seat_id': seatId,
     };
+    
+    // Only include passenger data if at least one field is provided
+    if (passengerFirstName != null ||
+        passengerLastName != null ||
+        passengerPhone != null ||
+        passengerPassportNumber != null ||
+        passengerNationality != null ||
+        passengerDateOfBirth != null) {
+      json.addAll({
+        'passenger_first_name': passengerFirstName,
+        'passenger_last_name': passengerLastName,
+        'passenger_phone': passengerPhone,
+        'passenger_passport_number': passengerPassportNumber,
+        'passenger_nationality': passengerNationality,
+        'passenger_date_of_birth': passengerDateOfBirth?.toIso8601String(),
+      });
+    }
+    
+    return json;
   }
 }
 
