@@ -177,26 +177,26 @@ def seed_database():
     flights_data = [
         # ===== Central Asia Routes =====
         # Bishkek hub connections
-        {"number": "KC101", "origin": "FRU", "dest": "ALA", "airplane": narrow_body[0], "days": 1, "dep_hour": 8, "duration": 1.5, "price": 150},
-        {"number": "KC102", "origin": "ALA", "dest": "FRU", "airplane": narrow_body[0], "days": 1, "dep_hour": 12, "duration": 1.5, "price": 150},
-        {"number": "KC103", "origin": "FRU", "dest": "NQZ", "airplane": narrow_body[1], "days": 2, "dep_hour": 7, "duration": 2, "price": 180},
-        {"number": "KC104", "origin": "NQZ", "dest": "FRU", "airplane": narrow_body[1], "days": 2, "dep_hour": 14, "duration": 2, "price": 180},
-        {"number": "KC105", "origin": "FRU", "dest": "TAS", "airplane": narrow_body[3], "days": 1, "dep_hour": 9, "duration": 1, "price": 120},
-        {"number": "KC106", "origin": "TAS", "dest": "FRU", "airplane": narrow_body[3], "days": 1, "dep_hour": 15, "duration": 1, "price": 120},
-        {"number": "KC107", "origin": "FRU", "dest": "OSS", "airplane": narrow_body[4], "days": 3, "dep_hour": 10, "duration": 0.75, "price": 80},
-        {"number": "KC108", "origin": "OSS", "dest": "FRU", "airplane": narrow_body[4], "days": 3, "dep_hour": 14, "duration": 0.75, "price": 80},
+        {"number": "KC101", "origin": "BSZ", "dest": "ALA", "airplane": narrow_body[0], "days": 1, "dep_hour": 8, "duration": 1.5, "price": 150},
+        {"number": "KC102", "origin": "ALA", "dest": "BSZ", "airplane": narrow_body[0], "days": 1, "dep_hour": 12, "duration": 1.5, "price": 150},
+        {"number": "KC103", "origin": "BSZ", "dest": "NQZ", "airplane": narrow_body[1], "days": 2, "dep_hour": 7, "duration": 2, "price": 180},
+        {"number": "KC104", "origin": "NQZ", "dest": "BSZ", "airplane": narrow_body[1], "days": 2, "dep_hour": 14, "duration": 2, "price": 180},
+        {"number": "KC105", "origin": "BSZ", "dest": "TAS", "airplane": narrow_body[3], "days": 1, "dep_hour": 9, "duration": 1, "price": 120},
+        {"number": "KC106", "origin": "TAS", "dest": "BSZ", "airplane": narrow_body[3], "days": 1, "dep_hour": 15, "duration": 1, "price": 120},
+        {"number": "KC107", "origin": "BSZ", "dest": "OSS", "airplane": narrow_body[4], "days": 3, "dep_hour": 10, "duration": 0.75, "price": 80},
+        {"number": "KC108", "origin": "OSS", "dest": "BSZ", "airplane": narrow_body[4], "days": 3, "dep_hour": 14, "duration": 0.75, "price": 80},
         
         # Bishkek to International
-        {"number": "KC201", "origin": "FRU", "dest": "IST", "airplane": wide_body[1], "days": 2, "dep_hour": 6, "duration": 5.5, "price": 350},
-        {"number": "KC202", "origin": "IST", "dest": "FRU", "airplane": wide_body[1], "days": 2, "dep_hour": 16, "duration": 5, "price": 350},
-        {"number": "KC203", "origin": "FRU", "dest": "SVO", "airplane": narrow_body[1], "days": 1, "dep_hour": 5, "duration": 4, "price": 280},
-        {"number": "KC204", "origin": "SVO", "dest": "FRU", "airplane": narrow_body[1], "days": 1, "dep_hour": 22, "duration": 4.5, "price": 280},
-        {"number": "KC205", "origin": "FRU", "dest": "DXB", "airplane": wide_body[1], "days": 3, "dep_hour": 4, "duration": 4, "price": 400},
-        {"number": "KC206", "origin": "DXB", "dest": "FRU", "airplane": wide_body[1], "days": 3, "dep_hour": 14, "duration": 4, "price": 400},
-        {"number": "KC207", "origin": "FRU", "dest": "DEL", "airplane": narrow_body[0], "days": 4, "dep_hour": 8, "duration": 3.5, "price": 320},
-        {"number": "KC208", "origin": "DEL", "dest": "FRU", "airplane": narrow_body[0], "days": 4, "dep_hour": 16, "duration": 3.5, "price": 320},
-        {"number": "KC209", "origin": "FRU", "dest": "PEK", "airplane": wide_body[2], "days": 5, "dep_hour": 10, "duration": 4.5, "price": 450},
-        {"number": "KC210", "origin": "PEK", "dest": "FRU", "airplane": wide_body[2], "days": 5, "dep_hour": 18, "duration": 5, "price": 450},
+        {"number": "KC201", "origin": "BSZ", "dest": "IST", "airplane": wide_body[1], "days": 2, "dep_hour": 6, "duration": 5.5, "price": 350},
+        {"number": "KC202", "origin": "IST", "dest": "BSZ", "airplane": wide_body[1], "days": 2, "dep_hour": 16, "duration": 5, "price": 350},
+        {"number": "KC203", "origin": "BSZ", "dest": "SVO", "airplane": narrow_body[1], "days": 1, "dep_hour": 5, "duration": 4, "price": 280},
+        {"number": "KC204", "origin": "SVO", "dest": "BSZ", "airplane": narrow_body[1], "days": 1, "dep_hour": 22, "duration": 4.5, "price": 280},
+        {"number": "KC205", "origin": "BSZ", "dest": "DXB", "airplane": wide_body[1], "days": 3, "dep_hour": 4, "duration": 4, "price": 400},
+        {"number": "KC206", "origin": "DXB", "dest": "BSZ", "airplane": wide_body[1], "days": 3, "dep_hour": 14, "duration": 4, "price": 400},
+        {"number": "KC207", "origin": "BSZ", "dest": "DEL", "airplane": narrow_body[0], "days": 4, "dep_hour": 8, "duration": 3.5, "price": 320},
+        {"number": "KC208", "origin": "DEL", "dest": "BSZ", "airplane": narrow_body[0], "days": 4, "dep_hour": 16, "duration": 3.5, "price": 320},
+        {"number": "KC209", "origin": "BSZ", "dest": "PEK", "airplane": wide_body[2], "days": 5, "dep_hour": 10, "duration": 4.5, "price": 450},
+        {"number": "KC210", "origin": "PEK", "dest": "BSZ", "airplane": wide_body[2], "days": 5, "dep_hour": 18, "duration": 5, "price": 450},
         
         # Almaty connections
         {"number": "KC301", "origin": "ALA", "dest": "IST", "airplane": wide_body[0], "days": 1, "dep_hour": 7, "duration": 6, "price": 380},
@@ -257,8 +257,8 @@ def seed_database():
         {"number": "SQ1006", "origin": "HKG", "dest": "SIN", "airplane": wide_body[1], "days": 3, "dep_hour": 17, "duration": 4, "price": 280},
         
         # ===== Additional Check-in Test Flights (departing in 12-20 hours) =====
-        {"number": "KC999", "origin": "FRU", "dest": "ALA", "airplane": narrow_body[0], "days": 0, "dep_hour": 18, "duration": 1.5, "price": 150},
-        {"number": "KC998", "origin": "ALA", "dest": "FRU", "airplane": narrow_body[0], "days": 0, "dep_hour": 20, "duration": 1.5, "price": 150},
+        {"number": "KC999", "origin": "BSZ", "dest": "ALA", "airplane": narrow_body[0], "days": 0, "dep_hour": 18, "duration": 1.5, "price": 150},
+        {"number": "KC998", "origin": "ALA", "dest": "BSZ", "airplane": narrow_body[0], "days": 0, "dep_hour": 20, "duration": 1.5, "price": 150},
     ]
     
     flights = []
@@ -349,7 +349,7 @@ def seed_database():
     
     announcements_data = [
         {
-            "title": "Welcome to AirAsia Central",
+            "title": "Welcome to AIT Fly",
             "message": "Thank you for choosing our airline. Complete your profile to start booking flights!"
         },
         {
@@ -359,22 +359,6 @@ def seed_database():
         {
             "title": "Baggage Allowance",
             "message": "Economy: 1 carry-on (7kg) + 1 checked bag (23kg). Business: 2 carry-on + 2 checked bags (32kg each)."
-        },
-        {
-            "title": "New Routes Announced!",
-            "message": "We're expanding! New direct flights from Bishkek to Dubai and Istanbul now available."
-        },
-        {
-            "title": "Mobile App Update",
-            "message": "Download our updated mobile app for the best booking experience. Now with boarding pass integration!"
-        },
-        {
-            "title": "Winter Schedule 2024",
-            "message": "Our winter schedule is now live. Book early for the best prices on holiday travel."
-        },
-        {
-            "title": "Loyalty Program",
-            "message": "Join our frequent flyer program and earn miles on every flight. Sign up in the app today!"
         },
     ]
     
@@ -408,14 +392,14 @@ def seed_database():
     print("     • john.doe@email.com / password123")
     print("     • jane.smith@email.com / password123")
     
-    print("\n🌍 Featured Routes from Bishkek (FRU):")
-    print("   • FRU → ALA (Almaty) - 1h 30m")
-    print("   • FRU → NQZ (Astana) - 2h")
-    print("   • FRU → TAS (Tashkent) - 1h")
-    print("   • FRU → IST (Istanbul) - 5h 30m")
-    print("   • FRU → SVO (Moscow) - 4h")
-    print("   • FRU → DXB (Dubai) - 4h")
-    print("   • FRU → PEK (Beijing) - 4h 30m")
+    print("\n🌍 Featured Routes from Bishkek (BSZ):")
+    print("   • BSZ → ALA (Almaty) - 1h 30m")
+    print("   • BSZ → NQZ (Astana) - 2h")
+    print("   • BSZ → TAS (Tashkent) - 1h")
+    print("   • BSZ → IST (Istanbul) - 5h 30m")
+    print("   • BSZ → SVO (Moscow) - 4h")
+    print("   • BSZ → DXB (Dubai) - 4h")
+    print("   • BSZ → PEK (Beijing) - 4h 30m")
 
 
 if __name__ == "__main__":

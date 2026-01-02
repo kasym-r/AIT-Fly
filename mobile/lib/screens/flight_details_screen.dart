@@ -784,7 +784,7 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen> {
             // Proceed to booking button
             if (_selectedSeats.isNotEmpty && !_showPassengerForm)
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 80), // Extra bottom padding to avoid SnackBar
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24), // Bottom padding
                 child: SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -807,7 +807,7 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen> {
             // Create booking button (shown after passenger form is filled)
             if (_showPassengerForm && _selectedSeats.length > 1)
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                 child: SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -827,7 +827,7 @@ class _FlightDetailsScreenState extends State<FlightDetailsScreen> {
             
             // Extra spacing when no seats selected
             if (_selectedSeats.isEmpty)
-              const SizedBox(height: 80),
+              const SizedBox(height: 24),
           ],
         ),
       ),

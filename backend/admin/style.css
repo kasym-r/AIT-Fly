@@ -65,6 +65,38 @@ body {
     border-color: #667eea;
 }
 
+/* Password input with toggle */
+.password-input-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.password-input-wrapper input {
+    padding-right: 45px;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+    font-size: 18px;
+    color: #666;
+    transition: color 0.3s;
+}
+
+.password-toggle:hover {
+    color: #667eea;
+}
+
+.password-toggle:focus {
+    outline: none;
+}
+
 /* Buttons */
 .btn {
     padding: 12px 24px;
