@@ -35,9 +35,6 @@ def seed_database():
     # Create passenger users
     passengers = [
         {"email": "passenger@example.com", "password": "password123"},
-        {"email": "john.doe@email.com", "password": "password123"},
-        {"email": "jane.smith@email.com", "password": "password123"},
-        {"email": "alex.kim@email.com", "password": "password123"},
     ]
     
     for p in passengers:
@@ -50,7 +47,6 @@ def seed_database():
     
     # Create staff users
     staff_members = [
-        {"email": "staff@example.com", "password": "password123"},
         {"email": "admin@airline.com", "password": "admin123"},
     ]
     
@@ -71,7 +67,7 @@ def seed_database():
     
     airports_data = [
         # Central Asia - Kyrgyzstan
-        {"code": "FRU", "name": "Manas International Airport", "city": "Bishkek", "country": "Kyrgyzstan"},
+        {"code": "BSZ", "name": "Manas International Airport", "city": "Bishkek", "country": "Kyrgyzstan"},
         {"code": "OSS", "name": "Osh Airport", "city": "Osh", "country": "Kyrgyzstan"},
         
         # Central Asia - Kazakhstan
