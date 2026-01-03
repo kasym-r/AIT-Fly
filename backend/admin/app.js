@@ -15,19 +15,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Login form
     document.getElementById('loginForm').addEventListener('submit', handleLogin);
     document.getElementById('logoutBtn').addEventListener('click', handleLogout);
-    
-    // Password visibility toggle
-    const togglePasswordBtn = document.getElementById('togglePassword');
-    const passwordInput = document.getElementById('password');
-    const togglePasswordIcon = document.getElementById('togglePasswordIcon');
-    
-    if (togglePasswordBtn && passwordInput) {
-        togglePasswordBtn.addEventListener('click', () => {
-            const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-            passwordInput.setAttribute('type', type);
-            togglePasswordIcon.textContent = type === 'password' ? '👁️' : '🙈';
-        });
-    }
 
     // Tab switching
     document.querySelectorAll('.tab-btn').forEach(btn => {
