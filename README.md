@@ -1,6 +1,6 @@
 # ✈️ AIT Fly – Setup Guide
 
-url to tutor: 
+url to tutor: 'https://youtu.be/z-Py4VceZyE'
 
 ## Step 1: Backend Setup
 
