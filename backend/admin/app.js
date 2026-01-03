@@ -339,13 +339,19 @@ function showCreateFlightModal() {
         document.getElementById('createFlightForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(e.target);
+            
+            // Convert datetime-local to UTC ISO string
+            // datetime-local gives local time, we need to convert to UTC
+            const departureLocal = new Date(formData.get('departure_time'));
+            const arrivalLocal = new Date(formData.get('arrival_time'));
+            
             const data = {
                 flight_number: formData.get('flight_number'),
                 origin_airport_id: parseInt(formData.get('origin_airport_id')),
                 destination_airport_id: parseInt(formData.get('destination_airport_id')),
                 airplane_id: parseInt(formData.get('airplane_id')),
-                departure_time: formData.get('departure_time').replace('T', ' ') + ':00',
-                arrival_time: formData.get('arrival_time').replace('T', ' ') + ':00',
+                departure_time: departureLocal.toISOString(),
+                arrival_time: arrivalLocal.toISOString(),
                 base_price: parseFloat(formData.get('base_price')),
                 status: 'SCHEDULED'
             };

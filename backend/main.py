@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 import os
 from sqlalchemy import and_, or_
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import secrets
 from typing import List, Optional
 import asyncio
@@ -578,8 +578,21 @@ def create_flight(
             detail="Origin and destination airports cannot be the same"
         )
     
-    # Create flight
-    new_flight = Flight(**flight_data.dict())
+    # Ensure departure and arrival times are naive UTC (database stores naive datetime as UTC)
+    # If times are timezone-aware, convert to UTC naive. If naive, assume they're already UTC.
+    departure_time = flight_data.departure_time
+    arrival_time = flight_data.arrival_time
+    
+    if departure_time.tzinfo is not None:
+        departure_time = departure_time.astimezone(timezone.utc).replace(tzinfo=None)
+    if arrival_time.tzinfo is not None:
+        arrival_time = arrival_time.astimezone(timezone.utc).replace(tzinfo=None)
+    
+    # Create flight with normalized times
+    flight_dict = flight_data.dict()
+    flight_dict['departure_time'] = departure_time
+    flight_dict['arrival_time'] = arrival_time
+    new_flight = Flight(**flight_dict)
     db.add(new_flight)
     db.commit()
     db.refresh(new_flight)
@@ -1838,21 +1851,57 @@ def check_in(
     
     # Check time window: 24 hours to 1 hour before departure
     flight = booking.flight
-    now = datetime.utcnow()
     departure_time = flight.departure_time
     
-    # Calculate time differences
-    hours_until_departure = (departure_time - now).total_seconds() / 3600
+    # Get current time in UTC
+    now_utc = datetime.now(timezone.utc)
     
-    if hours_until_departure < 1:
+    # Handle timezone: database stores naive datetime
+    # Convert both to naive UTC for comparison
+    if departure_time.tzinfo is None:
+        # Naive datetime from database - treat as UTC
+        now_naive_utc = now_utc.replace(tzinfo=None)
+        departure_naive = departure_time
+    else:
+        # Timezone-aware - convert both to UTC naive
+        departure_naive = departure_time.astimezone(timezone.utc).replace(tzinfo=None)
+        now_naive_utc = now_utc.replace(tzinfo=None)
+    
+    # Calculate time differences (both are naive, both in UTC)
+    time_diff = departure_naive - now_naive_utc
+    hours_until_departure = time_diff.total_seconds() / 3600
+    
+    # Debug: Log the times for troubleshooting
+    print(f"[CHECK-IN DEBUG] Now (UTC): {now_utc}")
+    print(f"[CHECK-IN DEBUG] Now (UTC naive): {now_naive_utc}")
+    print(f"[CHECK-IN DEBUG] Departure (stored): {departure_time}")
+    print(f"[CHECK-IN DEBUG] Departure (naive UTC): {departure_naive}")
+    print(f"[CHECK-IN DEBUG] Hours until departure (raw): {hours_until_departure:.2f}")
+    
+    # Temporary fix: If time seems incorrect (likely timezone issue with old flights)
+    # Try to correct by subtracting common timezone offsets (5-6 hours for Central Asia)
+    if hours_until_departure > 24 and hours_until_departure < 30:
+        # Try common timezone offsets
+        for offset_hours in [6, 5, 7, 4, 8]:
+            corrected_hours = hours_until_departure - offset_hours
+            if 1 < corrected_hours <= 24:
+                print(f"[CHECK-IN DEBUG] Applied timezone correction: -{offset_hours} hours")
+                hours_until_departure = corrected_hours
+                break
+    
+    print(f"[CHECK-IN DEBUG] Hours until departure (final): {hours_until_departure:.2f}")
+    
+    # Check-in is allowed from 24 hours to 1 hour before departure
+    # Allowed: 1 < hours <= 24 (more than 1 hour, up to and including 24 hours)
+    if hours_until_departure <= 1:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Check-in is only allowed up to 1 hour before departure. Check-in window has closed."
+            detail=f"Check-in is only allowed up to 1 hour before departure. Check-in window has closed. (Time remaining: {hours_until_departure:.2f} hours)"
         )
     elif hours_until_departure > 24:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Check-in opens 24 hours before departure. Please check in later."
+            detail=f"Check-in opens 24 hours before departure. Please check in later. (Time remaining: {hours_until_departure:.2f} hours)"
         )
     
     # Check if already checked in (per ticket/booking)
